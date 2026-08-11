@@ -1,0 +1,39 @@
+name: Deploy Paper frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare static site
+        env:
+          PAPER_API_URL: ${{ vars.PAPER_API_URL }}
+        run: |
+          mkdir public
+          cp -R site/. public/
+          touch public/.nojekyll
+          find public -type f \( -name '*.html' -o -name '*.css' \) -print0 | xargs -0 sed -i 's#href="/#href="/paper/#g; s#src="/#src="/paper/#g; s#url(/#url(/paper/#g'
+          find public -type f -name '*.html' -print0 | xargs -0 sed -i "s#content=\"__PAPER_API_URL__\"#content=\"${PAPER_API_URL}\"#g"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4

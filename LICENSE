@@ -1,0 +1,9 @@
+Paper is licensed under the GNU Affero General Public License, version 3
+or (at your option) any later version (AGPL-3.0-or-later).
+
+The complete license text is available at:
+https://www.gnu.org/licenses/agpl-3.0.txt
+
+This project uses PyMuPDF. PyMuPDF is available under AGPL-3.0 or a
+commercial license; see its documentation for the applicable terms:
+https://pymupdf.readthedocs.io/en/latest/faq.html#licensing

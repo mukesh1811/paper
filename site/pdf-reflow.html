@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta name="paper-api-base" content="__PAPER_API_URL__" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="PDF reflow, explained: learn how Paper turns selectable text from a fixed PDF page into a responsive reading column, and where reflow has limits." />
+  <meta property="og:type" content="website" /><meta property="og:title" content="PDF reflow, explained" /><meta property="og:description" content="What PDF reflow changes, what it preserves, and which documents are a good fit." />
+  <link rel="canonical" href="/pdf-reflow" /><link rel="icon" href="/static/favicon.svg" type="image/svg+xml" /><title>PDF reflow, explained - Paper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" /><link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="site-page">
+  <header class="site-nav-wrap page-nav"><nav class="site-nav" aria-label="Main navigation"><a class="brand" href="/"><span class="brand-mark">P</span><span>Paper</span></a><div class="nav-links"><a href="/#why-paper">Why Paper</a><a href="/features">Features</a><a href="/blog">Journal</a></div><a class="nav-cta" href="/read">Start reading <span aria-hidden="true">&rarr;</span></a></nav></header>
+  <header class="page-hero"><div class="section-kicker">Paper / PDF reflow</div><h1>PDF reflow, explained.</h1><p>Reflow takes text that was arranged for a fixed page and lets it find a readable shape on the screen in front of you.</p></header>
+  <main class="page-content narrow">
+    <p class="page-intro">A PDF records positions: this line begins here, that heading sits there, and the footer occupies the bottom margin. Reflow changes the reading surface without changing the source file.</p>
+    <h2>What reflow does</h2>
+    <p>Paper reads the selectable text in a public PDF, identifies useful blocks such as headings and paragraphs, and presents them in a responsive column. On a phone, the text can use the full width available. On a desktop, the line length can stay measured instead of stretching across the whole window.</p>
+    <div class="page-columns">
+      <section class="page-point"><h3>Adapts to width</h3><p>Text wraps to the viewport rather than remaining trapped inside a miniature printed page.</p></section>
+      <section class="page-point"><h3>Restores rhythm</h3><p>Paragraph spacing, headings, type size, and line height support sustained reading instead of page navigation.</p></section>
+      <section class="page-point"><h3>Clears repetition</h3><p>Repeated page numbers and running headers can be removed when the extraction heuristics identify them safely.</p></section>
+      <section class="page-point"><h3>Leaves source context</h3><p>Reflow is a reading layer, not a replacement for the original PDF. Keep the source for exact page references and visual checks.</p></section>
+    </div>
+    <h2>What reflow cannot solve</h2>
+    <p>A scanned PDF has no text layer for the current reader to extract. Tables, equations, columns, charts, forms, and layouts where position carries meaning can also become imperfect when moved into a single reading stream. Those are not bugs to hide with confident copy; they are reasons to keep the original view nearby.</p>
+    <h2>Currently supported formats</h2>
+    <p>PaperÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s reflow reader currently accepts public HTTP(S) links to selectable-text PDFs up to 30 MB. OCR and non-PDF formats are future directions, not current capabilities.</p>
+    <p><a class="text-link" href="/formats">See current support and future directions <span aria-hidden="true">&rarr;</span></a></p>
+    <div class="page-callout"><p>Try reflow on a public PDF and judge the reading surface for yourself.</p><a class="button button-light" href="/read">Open a PDF <span aria-hidden="true">&rarr;</span></a></div>
+    <h2>Questions</h2>
+    <h3>Is PDF reflow the same as converting a PDF?</h3><p>Not exactly. Paper creates a browser reading view from the PDFÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s text; it does not rewrite or export the original file.</p>
+    <h3>Does reflow work on every PDF?</h3><p>No. Selectable, text-first PDFs are the best fit. Scans and visually complex documents may not reflow usefully.</p>
+  </main>
+  <footer class="site-footer"><a class="brand" href="/"><span class="brand-mark">P</span><span>Paper</span></a><p>The reading layer for the public internet.</p><div class="footer-links"><a href="/read-pdf-online">Read PDFs online</a><a href="/formats">Supported formats</a><a href="/blog">Journal</a></div></footer>
+</body>
+</html>

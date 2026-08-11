@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta name="paper-api-base" content="__PAPER_API_URL__" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Why scanned PDFs may not reflow: learn how image-only documents differ from text PDFs, what OCR does, and how to check the result." />
+  <meta property="og:type" content="article" /><meta property="og:title" content="Why a scanned PDF may not reflow" /><meta property="og:description" content="How to recognize an image-only PDF and understand the role and limits of OCR." />
+  <link rel="canonical" href="/blog/scanned-pdf-reflow" /><link rel="icon" href="/static/favicon.svg" type="image/svg+xml" /><title>Why a scanned PDF may not reflow - Paper Journal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" /><link rel="stylesheet" href="/static/styles.css" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Why a scanned PDF may not reflow","description":"How scanned PDFs, text layers, and OCR affect reflow.","author":{"@type":"Organization","name":"Paper"},"publisher":{"@type":"Organization","name":"Paper"}}</script>
+</head>
+<body class="site-page">
+  <header class="site-nav-wrap page-nav"><nav class="site-nav" aria-label="Main navigation"><a class="brand" href="/"><span class="brand-mark">P</span><span>Paper</span></a><div class="nav-links"><a href="/#why-paper">Why Paper</a><a href="/features">Features</a><a href="/blog">Journal</a></div><a class="nav-cta" href="/read">Start reading <span aria-hidden="true">&rarr;</span></a></nav></header>
+  <header class="page-hero"><div class="article-meta"><span>Explainer</span><span>5 min read</span></div><h1 class="article-title">Why a scanned PDF may not reflow</h1><p class="article-dek">If a document is made of page images, a reader cannot simply rearrange the words. First, it has to find them.</p></header>
+  <main class="page-content narrow"><article class="article-body">
+    <p>A scanned PDF is usually a collection of images inside a PDF container. It may show a perfectly legible page to your eyes, but the file may contain no characters, words, or paragraphs. To a reflow reader, there is nothing to wrap until another process interprets the image.</p>
+    <h2>How to recognize an image-only PDF</h2>
+    <p>Try selecting a sentence. If the page behaves like one picture, search for a word and returns nothing, or copy and paste produces no useful text, the document may be scanned. You can also zoom in: larger letters do not necessarily mean a text layer exists.</p>
+    <p>Some documents are mixed. A scanned cover can sit in front of text pages. A paper can contain selectable paragraphs and image-only charts. Test the part you actually need to read.</p>
+    <h2>What OCR does</h2>
+    <p>OCR stands for optical character recognition. It examines an image and predicts the characters represented by its shapes. The result is often added as a hidden or visible text layer so the document can be searched and copied.</p>
+    <p>OCR can be surprisingly good on clean, straight scans. It can also be wrong in ways that are hard to notice: a zero becomes an O, a footnote marker moves, a name changes, or a mathematical symbol disappears. Accuracy varies with resolution, contrast, language, page damage, typeface, columns, and tables.</p>
+    <blockquote>OCR creates a useful hypothesis about the page. It does not turn an uncertain scan into an unquestionable source.</blockquote>
+    <h2>Why reflow makes the problem visible</h2>
+    <p>A page viewer can display an image without understanding it. A reflowed view must decide where words begin and end, which lines belong together, and what order the blocks should follow. Without a text layer, it cannot do that responsibly. With a noisy OCR layer, it may produce a readable stream that quietly contains errors.</p>
+    <p>That is why a reading tool should say when it needs selectable text. A clear failure is better than a confident reconstruction that changes the document.</p>
+    <h2>What to do with a scanned document</h2>
+    <p>Look for an HTML, EPUB, or born-digital PDF version from the same publisher, archive, or public collection. If you create an OCR version yourself, compare important passages with the page image and keep the original source. For historical or damaged material, expect manual checking.</p>
+    <p>If the document is private, be cautious about sending it to an OCR service. A scan can contain sensitive information even when it looks harmless. Understand where the file goes and how long it is retained before choosing a tool.</p>
+    <h2>Paper's current boundary</h2>
+    <p>Paper currently reads public PDFs with selectable text. It does not OCR scanned PDFs yet. That limitation is intentional: the reader should not imply that it has read words that the source never exposed as text.</p>
+    <div class="page-callout"><p>Check the source first, then bring Paper a text-based public PDF.</p><a class="button button-light" href="/blog/pdf-selectable-text">Learn how to check a PDF <span aria-hidden="true">&rarr;</span></a></div>
+    <div class="article-footer"><a href="/blog">&larr; Back to the Paper journal</a><br /><a href="/formats">See Paper's current format boundary &rarr;</a></div>
+  </article></main>
+  <footer class="site-footer"><a class="brand" href="/"><span class="brand-mark">P</span><span>Paper</span></a><p>The reading layer for the public internet.</p><div class="footer-links"><a href="/read-pdf-online">Read PDFs online</a><a href="/formats">Supported formats</a></div></footer>
+</body>
+</html>

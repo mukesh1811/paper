@@ -1,0 +1,37 @@
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+.DS_Store
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Test, coverage, and runtime output
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.log
+output/
+
+# Browser/test tooling
+.playwright-cli/
+playwright-report/
+test-results/
+
+# Editor and OS metadata
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+
+# Build/package artifacts
+.build/
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/

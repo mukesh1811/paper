@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta name="paper-api-base" content="__PAPER_API_URL__" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Open a public PDF link online and start reading. Paper turns a selectable-text PDF URL into a clean, reflowed reading view." />
+  <meta property="og:type" content="website" /><meta property="og:title" content="Open a PDF link online and start reading" /><meta property="og:description" content="A URL-first reading flow for public, selectable-text PDFs." />
+  <link rel="canonical" href="/open-pdf-link-online" /><link rel="icon" href="/static/favicon.svg" type="image/svg+xml" /><title>Open a PDF link online and start reading - Paper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" /><link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="site-page">
+  <header class="site-nav-wrap page-nav"><nav class="site-nav" aria-label="Main navigation"><a class="brand" href="/"><span class="brand-mark">P</span><span>Paper</span></a><div class="nav-links"><a href="/#why-paper">Why Paper</a><a href="/features">Features</a><a href="/blog">Journal</a></div><a class="nav-cta" href="/read">Start reading <span aria-hidden="true">&rarr;</span></a></nav></header>
+  <header class="page-hero"><div class="section-kicker">Paper / open a PDF link</div><h1>Open a PDF link online and start reading.</h1><p>Skip the file-management detour. Give Paper a public PDF URL and get a reading surface built for the words, not the frame.</p></header>
+  <main class="page-content narrow">
+    <p class="page-intro">A PDF link is already a useful handoff. Paper keeps that simplicity: one public URL in, one comfortable reading view out.</p>
+    <h2>What happens after you paste the link?</h2>
+    <div class="page-columns">
+      <section class="page-point"><h3>Paper checks the source</h3><p>The URL must use HTTP or HTTPS and resolve to a public network host. Redirect targets are checked too.</p></section>
+      <section class="page-point"><h3>Paper reads the text layer</h3><p>The current MVP works with selectable-text PDFs. It does not pretend a scan is text when there is nothing to extract.</p></section>
+      <section class="page-point"><h3>Paper rebuilds the surface</h3><p>Text, headings, and paragraphs are arranged for a responsive reading column rather than a fixed page viewport.</p></section>
+      <section class="page-point"><h3>You keep the source link</h3><p>Paper is a reading layer. Use the original PDF when you need exact pages, visual layout, or a printable artifact.</p></section>
+    </div>
+    <h2>Links that work best</h2>
+    <p>Use a direct, publicly accessible PDF URL. Text-first books, reports, papers, essays, and course readings are the strongest fit. The current limit is 30 MB; scanned image-only PDFs, private files, and other formats are outside the supported boundary.</p>
+    <h2>Currently supported formats</h2>
+    <p>Today Paper supports public HTTP(S) links to selectable-text PDFs. That is the whole current format story. Open the <a href="/formats">supported formats page</a> for the limits and the formats Paper may explore next.</p>
+    <div class="page-callout"><p>Paste a public PDF link and see the reading view.</p><a class="button button-light" href="/read">Open Paper <span aria-hidden="true">&rarr;</span></a></div>
+    <h2>Questions</h2>
+    <h3>Can I paste a link that ends in something other than .pdf?</h3><p>Possibly, if the URL responds with a PDF. Paper checks the returned content rather than relying only on the filename.</p>
+    <h3>Can I share a Paper reading URL?</h3><p>The current flow starts from the source PDF URL. Paper does not yet create a hosted library or a separate public reading page for each document.</p>
+  </main>
+  <footer class="site-footer"><a class="brand" href="/"><span class="brand-mark">P</span><span>Paper</span></a><p>The reading layer for the public internet.</p><div class="footer-links"><a href="/read-pdf-online">Read PDFs online</a><a href="/formats">Supported formats</a><a href="/blog">Journal</a></div></footer>
+</body>
+</html>
