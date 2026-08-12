@@ -73,4 +73,4 @@ The fetcher rejects non-http(s) URLs, credentials in URLs, private/local IP targ
 6. installable PWA / offline reading
 ## Deployment
 
-The static frontend is published from `site/` through GitHub Pages. Set the repository variable `PAPER_API_URL` to the public Cloud Run URL before enabling the Pages workflow. Set `PAPER_SITE_URL` and `PAPER_ALLOWED_ORIGINS` on the Cloud Run service; the latter should include `https://mukesh1811.github.io/paper` and any local development origin you use.
+The static frontend is published from `site/` through GitHub Pages. Cloud Run serves the API only. Set the GitHub repository variable `PAPER_API_URL` to the public Cloud Run URL. Set `PAPER_SITE_URL` and `PAPER_ALLOWED_ORIGINS` on Cloud Run; CORS origins should be `https://mukesh1811.github.io` and any local development origin you use.

@@ -13,12 +13,13 @@ import fitz  # PyMuPDF
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = APP_DIR.parent
 STATIC_DIR = Path(os.getenv("PAPER_SITE_DIR", str(PROJECT_DIR / "site")))
+SERVE_SITE = os.getenv("PAPER_SERVE_SITE", "true").lower() in {"1", "true", "yes"}
 MAX_PDF_BYTES = 30 * 1024 * 1024
 MAX_REDIRECTS = 4
 USER_AGENT = "Paper/0.1 (+PDF reflow reader)"
@@ -42,137 +43,155 @@ class PublicAssetFiles(StaticFiles):
         return await super().get_response(path, scope)
 
 
-app.mount("/static", PublicAssetFiles(directory=STATIC_DIR), name="static")
+if SERVE_SITE:
+    app.mount("/static", PublicAssetFiles(directory=STATIC_DIR), name="static")
 SITE_URL = os.getenv("PAPER_SITE_URL", "http://localhost:8000").rstrip("/")
 
 
+def _site_file(filename: str) -> FileResponse:
+    if not SERVE_SITE:
+        raise HTTPException(404, "The Paper frontend is hosted separately.")
+    return FileResponse(STATIC_DIR / filename)
+
+
 @app.get("/")
-def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+def index() -> Response:
+    if not SERVE_SITE:
+        return JSONResponse({"service": "paper-api", "status": "ok"})
+    return _site_file("index.html")
+
+
+@app.get("/healthz")
+def healthz() -> dict:
+    return {"status": "ok"}
 
 
 @app.get("/read")
 def read() -> FileResponse:
-    return FileResponse(STATIC_DIR / "read.html")
+    return _site_file("read.html")
 
 
 @app.get("/features")
 def features() -> FileResponse:
-    return FileResponse(STATIC_DIR / "features.html")
+    return _site_file("features.html")
 
 
 @app.get("/how-it-works")
 def how_it_works() -> FileResponse:
-    return FileResponse(STATIC_DIR / "how-it-works.html")
+    return _site_file("how-it-works.html")
 
 
 @app.get("/read-pdf-online")
 def read_pdf_online() -> FileResponse:
-    return FileResponse(STATIC_DIR / "read-pdf-online.html")
+    return _site_file("read-pdf-online.html")
 
 
 @app.get("/read-pdf-on-phone")
 def read_pdf_on_phone() -> FileResponse:
-    return FileResponse(STATIC_DIR / "read-pdf-on-phone.html")
+    return _site_file("read-pdf-on-phone.html")
 
 
 @app.get("/read-pdf-like-a-book")
 def read_pdf_like_a_book() -> FileResponse:
-    return FileResponse(STATIC_DIR / "read-pdf-like-a-book.html")
+    return _site_file("read-pdf-like-a-book.html")
 
 
 @app.get("/pdf-reflow")
 def pdf_reflow() -> FileResponse:
-    return FileResponse(STATIC_DIR / "pdf-reflow.html")
+    return _site_file("pdf-reflow.html")
 
 
 @app.get("/read-pdf-without-downloading")
 def read_pdf_without_downloading() -> FileResponse:
-    return FileResponse(STATIC_DIR / "read-pdf-without-downloading.html")
+    return _site_file("read-pdf-without-downloading.html")
 
 
 @app.get("/open-pdf-link-online")
 def open_pdf_link_online() -> FileResponse:
-    return FileResponse(STATIC_DIR / "open-pdf-link-online.html")
+    return _site_file("open-pdf-link-online.html")
 
 
 @app.get("/pdf-reader-for-long-documents")
 def pdf_reader_for_long_documents() -> FileResponse:
-    return FileResponse(STATIC_DIR / "pdf-reader-for-long-documents.html")
+    return _site_file("pdf-reader-for-long-documents.html")
 
 
 @app.get("/read-research-papers")
 def read_research_papers() -> FileResponse:
-    return FileResponse(STATIC_DIR / "read-research-papers.html")
+    return _site_file("read-research-papers.html")
 
 
 @app.get("/formats")
 def formats() -> FileResponse:
-    return FileResponse(STATIC_DIR / "formats.html")
+    return _site_file("formats.html")
 
 
 @app.get("/blog")
 def blog() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog.html")
+    return _site_file("blog.html")
 
 
 @app.get("/blog/read-pdf-like-a-book")
 def blog_read_pdf_like_a_book() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-read-pdf-like-a-book.html")
+    return _site_file("blog-read-pdf-like-a-book.html")
 
 
 @app.get("/blog/best-way-to-read-pdf-on-phone")
 def blog_best_way_to_read_pdf_on_phone() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-best-way-to-read-pdf-on-phone.html")
+    return _site_file("blog-best-way-to-read-pdf-on-phone.html")
 
 
 @app.get("/blog/what-is-pdf-reflow")
 def blog_what_is_pdf_reflow() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-what-is-pdf-reflow.html")
+    return _site_file("blog-what-is-pdf-reflow.html")
 
 
 @app.get("/blog/pdf-selectable-text")
 def blog_pdf_selectable_text() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-pdf-selectable-text.html")
+    return _site_file("blog-pdf-selectable-text.html")
 
 
 @app.get("/blog/why-two-column-pdfs-are-hard-to-read")
 def blog_two_column_pdfs() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-why-two-column-pdfs-are-hard-to-read.html")
+    return _site_file("blog-why-two-column-pdfs-are-hard-to-read.html")
 
 
 @app.get("/blog/pdf-reflow-vs-pdf-viewer")
 def blog_pdf_reflow_vs_viewer() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-pdf-reflow-vs-pdf-viewer.html")
+    return _site_file("blog-pdf-reflow-vs-pdf-viewer.html")
 
 
 @app.get("/blog/read-long-report-without-losing-place")
 def blog_read_long_report() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-read-long-report-without-losing-place.html")
+    return _site_file("blog-read-long-report-without-losing-place.html")
 
 
 @app.get("/blog/pdf-vs-epub")
 def blog_pdf_vs_epub() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-pdf-vs-epub.html")
+    return _site_file("blog-pdf-vs-epub.html")
 
 
 @app.get("/blog/scanned-pdf-reflow")
 def blog_scanned_pdf_reflow() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-scanned-pdf-reflow.html")
+    return _site_file("blog-scanned-pdf-reflow.html")
 
 
 @app.get("/blog/pdf-reading-setup")
 def blog_pdf_reading_setup() -> FileResponse:
-    return FileResponse(STATIC_DIR / "blog-pdf-reading-setup.html")
+    return _site_file("blog-pdf-reading-setup.html")
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots() -> str:
+    if not SERVE_SITE:
+        return "User-agent: *\nDisallow: /\n"
     return f"User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: {SITE_URL}/sitemap.xml\n"
 
 
 @app.get("/sitemap.xml")
 def sitemap() -> Response:
+    if not SERVE_SITE:
+        return Response(status_code=404)
     paths = [
         "/",
         "/features",
