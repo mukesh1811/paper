@@ -27,3 +27,15 @@ def test_reader_entry_page_is_not_in_the_seo_sitemap():
 
     assert response.status_code == 200
     assert ">http://localhost:8000/read</loc>" not in response.text
+
+
+def test_github_pages_origin_is_allowed_for_api_requests():
+    response = client.options(
+        "/api/read",
+        headers={
+            "Origin": "https://mukesh1811.github.io",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.headers["access-control-allow-origin"] == "https://mukesh1811.github.io"

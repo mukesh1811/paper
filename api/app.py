@@ -25,7 +25,25 @@ MAX_REDIRECTS = 4
 USER_AGENT = "Paper/0.1 (+PDF reflow reader)"
 
 app = FastAPI(title="Paper", version="0.1.0")
-allowed_origins = [origin.strip() for origin in os.getenv("PAPER_ALLOWED_ORIGINS", "http://localhost:8000").split(",") if origin.strip()]
+
+
+def _cors_origin(value: str) -> str:
+    """Accept origins with or without an accidental path, such as /paper."""
+    value = value.strip().rstrip("/")
+    parsed = urlparse(value)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return value
+
+
+allowed_origins = [
+    _cors_origin(origin)
+    for origin in os.getenv(
+        "PAPER_ALLOWED_ORIGINS",
+        "https://mukesh1811.github.io,http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
