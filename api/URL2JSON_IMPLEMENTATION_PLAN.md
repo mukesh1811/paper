@@ -45,3 +45,8 @@ flowchart LR
 - [ ] Connect `/api/read` and the frontend to the new response.
 - [ ] Add tests for PDFs, HTML, unreadable pages, and bad URLs.
 - [ ] Add chunking and background jobs for very long sources.
+
+### Readability regression cases
+
+- Reject the Project Gutenberg [Reading Lists](https://www.gutenberg.org/ebooks/bookshelf/) catalog: it passes a technical HTML check but is not one coherent work.
+- Accept Paul Graham’s [“What You Can’t Say”](https://www.paulgraham.com/say.html) essay: its old-style markup has no `article`, `main`, `p`, or `section`, despite containing the full work.
