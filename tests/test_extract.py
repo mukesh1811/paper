@@ -1,9 +1,9 @@
-import fitz
+import pymupdf
 from api.app import extract_book
 
 
 def make_pdf() -> bytes:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for n in range(3):
         page = doc.new_page()
         page.insert_text((72, 55), "A Small Book", fontsize=9)
@@ -11,7 +11,7 @@ def make_pdf() -> bytes:
             page.insert_text((72, 120), "A SMALL BOOK", fontsize=24)
             page.insert_text((72, 165), "Chapter One", fontsize=17)
         page.insert_textbox(
-            fitz.Rect(72, 210, 520, 660),
+            pymupdf.Rect(72, 210, 520, 660),
             "This is a paragraph of readable prose. It exists so the extractor can turn a fixed PDF page into flowing text for a browser reader. " * 4,
             fontsize=12,
             lineheight=1.3,

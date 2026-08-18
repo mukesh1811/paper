@@ -9,7 +9,7 @@ from pathlib import Path
 from statistics import median
 from urllib.parse import urljoin, urlparse
 
-import fitz  # PyMuPDF
+import pymupdf
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -331,7 +331,7 @@ def _clean_text(text: str) -> str:
 
 def extract_book(pdf_bytes: bytes) -> dict:
     try:
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     except Exception as exc:
         raise HTTPException(422, "The PDF could not be parsed.") from exc
 
