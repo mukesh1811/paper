@@ -1,9 +1,18 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from api.app import app
 
 
 client = TestClient(app)
+
+
+def test_unbuilt_frontend_uses_its_own_api_origin_locally():
+    script = (Path(__file__).resolve().parents[1] / "site" / "app.js").read_text(encoding="utf-8")
+
+    assert "configured === '__PAPER_API_URL__'" in script
+    assert "fetch(`${apiBaseUrl()}/api/read?url=${encodeURIComponent(activeUrl)}`)" in script
 
 
 def test_home_keeps_the_prefilled_reader_form():

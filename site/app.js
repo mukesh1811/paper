@@ -44,6 +44,14 @@ function escapeText(value) {
   return span.innerHTML;
 }
 
+function apiBaseUrl() {
+  const configured = document.querySelector('meta[name="paper-api-base"]')?.content?.trim();
+  // Source HTML keeps this deployment token.  When the backend serves that
+  // source locally, use the same origin instead of requesting a fake path.
+  if (!configured || configured === '__PAPER_API_URL__') return '';
+  return configured.replace(/\/$/, '');
+}
+
 function renderBook(data) {
   const fragments = [];
   fragments.push(`<h1 class="book-title">${escapeText(data.title)}</h1>`);
@@ -87,8 +95,7 @@ async function openPdf(url, pushState = true) {
   status.textContent = 'Fetching and reflowing…';
   setLoading(true);
   try {
-    const apiBase = document.querySelector('meta[name="paper-api-base"]')?.content?.replace(/\/$/, '') || '';
-    const response = await fetch(`${apiBase}/api/read?url=${encodeURIComponent(activeUrl)}`);
+    const response = await fetch(`${apiBaseUrl()}/api/read?url=${encodeURIComponent(activeUrl)}`);
     let payload;
     try { payload = await response.json(); } catch { payload = {}; }
     if (!response.ok) throw new Error(payload.detail || 'Could not open that PDF.');
