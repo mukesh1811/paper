@@ -2,14 +2,15 @@
 
 [← Back to README](../README.md)
 
-The backend takes a public URL and turns it into `paper.document.v1` for the reader. AI decides what the source is and how to arrange it. Tools pull the exact text.
+The backend takes a public URL and turns it into `paper.document.v1` for the reader. Tools fetch, identify formats, and pull exact text. AI decides whether a source is a readable work and how to arrange its text.
 
 > **Core rule:** AI can choose and arrange blocks. It cannot write the source text.
 
 `🧠` intelligence · `⚙️` deterministic · `📦` interface
 
 - **URL** — Get a public URL from the reader. *Example: a Tolstoy PDF or a Gutenberg HTML page.*
-- **Inspect source** — Fetch it, identify it, and reject anything that is not readable. *Example: accept a PDF or book page; reject a catalog or login page.*
+- **Fetch + identify format** — Safely fetch the URL and identify its format. *Example: accept a PDF or HTML page; reject an image or ZIP.*
+- **Inspect readability** — Decide whether the source is a work worth reading. *Example: accept a book page; reject a catalog or login page.*
 - **Extract** — Pull out the exact text and details. *Example: page text from a PDF or paragraphs from HTML.*
 - **PDF / HTML** — Read PDFs and HTML pages. *Example: PyMuPDF for PDF; an HTML parser for Gutenberg.*
 - **Evidence blocks** — Keep each piece of text with where it came from. *Example: “Chapter 1” from PDF page 3.*
@@ -19,8 +20,9 @@ The backend takes a public URL and turns it into `paper.document.v1` for the rea
 
 ```mermaid
 flowchart LR
-    A[📦 URL] --> B[🧠⚙️ Inspect source]
-    B --> D[⚙️ Extract]
+    A[📦 URL] --> B[⚙️ Fetch + identify format]
+    B --> I[🧠 Inspect readability]
+    I --> D[⚙️ Extract]
     D --> P[⚙️ PDF]
     D --> H[⚙️ HTML]
     P --> E[⚙️ Evidence blocks]
@@ -33,7 +35,8 @@ flowchart LR
 ### Implementation
 
 - [x] Define the shared `paper.document.v1` format.
-- [ ] Build `Inspect source`: fetch the URL, identify the source, and reject anything unreadable.
+- [x] Build `Fetch + identify format`: safely fetch public PDF/HTML sources and reject unsupported responses.
+- [ ] Build `Inspect readability`: use the source-derived signals to decide whether a page is a readable work or should be rejected.
 - [ ] Keep the current PDF extractor working behind the new flow.
 - [ ] Add HTML extraction for readable pages and books.
 - [ ] Turn extracted text into evidence blocks with source locations.

@@ -1,29 +1,24 @@
 from __future__ import annotations
 
-import ipaddress
 import os
 import re
-import socket
 from collections import Counter
 from pathlib import Path
 from statistics import median
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import pymupdf
-import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from api.inspect_source import fetch_pdf
+
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = APP_DIR.parent
 STATIC_DIR = Path(os.getenv("PAPER_SITE_DIR", str(PROJECT_DIR / "site")))
 SERVE_SITE = os.getenv("PAPER_SERVE_SITE", "true").lower() in {"1", "true", "yes"}
-MAX_PDF_BYTES = 30 * 1024 * 1024
-MAX_REDIRECTS = 4
-USER_AGENT = "Paper/0.1 (+PDF reflow reader)"
-
 app = FastAPI(title="Paper", version="0.1.0")
 
 
@@ -238,74 +233,6 @@ def sitemap() -> Response:
     urls = "".join(f"<url><loc>{SITE_URL}{path}</loc></url>" for path in paths)
     body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
     return Response(content=body, media_type="application/xml")
-
-
-def _clean_url(url: str) -> str:
-    parsed = urlparse(url.strip())
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise HTTPException(400, "Please enter a public http(s) PDF URL.")
-    if parsed.username or parsed.password:
-        raise HTTPException(400, "URLs containing credentials are not allowed.")
-    return parsed.geturl()
-
-
-def _assert_public_host(url: str) -> None:
-    parsed = urlparse(url)
-    host = parsed.hostname
-    if not host:
-        raise HTTPException(400, "Invalid URL.")
-
-    try:
-        addresses = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
-    except socket.gaierror as exc:
-        raise HTTPException(400, f"Could not resolve host: {host}") from exc
-
-    for item in addresses:
-        raw_ip = item[4][0]
-        try:
-            ip = ipaddress.ip_address(raw_ip)
-        except ValueError:
-            continue
-        if not ip.is_global:
-            raise HTTPException(400, "Private or local network URLs are not allowed.")
-
-
-async def fetch_pdf(url: str) -> bytes:
-    current = _clean_url(url)
-    headers = {"User-Agent": USER_AGENT, "Accept": "application/pdf,*/*;q=0.8"}
-
-    async with httpx.AsyncClient(timeout=httpx.Timeout(25.0, connect=10.0), headers=headers) as client:
-        for _ in range(MAX_REDIRECTS + 1):
-            _assert_public_host(current)
-            try:
-                async with client.stream("GET", current, follow_redirects=False) as response:
-                    if response.status_code in {301, 302, 303, 307, 308}:
-                        location = response.headers.get("location")
-                        if not location:
-                            raise HTTPException(502, "The PDF host returned an invalid redirect.")
-                        current = _clean_url(urljoin(current, location))
-                        continue
-
-                    if response.status_code >= 400:
-                        raise HTTPException(502, f"The PDF host returned HTTP {response.status_code}.")
-
-                    content_length = response.headers.get("content-length")
-                    if content_length and content_length.isdigit() and int(content_length) > MAX_PDF_BYTES:
-                        raise HTTPException(413, "That PDF is larger than the 30 MB MVP limit.")
-
-                    data = bytearray()
-                    async for chunk in response.aiter_bytes():
-                        data.extend(chunk)
-                        if len(data) > MAX_PDF_BYTES:
-                            raise HTTPException(413, "That PDF is larger than the 30 MB MVP limit.")
-                    payload = bytes(data)
-                    if not payload.startswith(b"%PDF-"):
-                        raise HTTPException(415, "That URL did not return a PDF.")
-                    return payload
-            except httpx.HTTPError as exc:
-                raise HTTPException(502, f"Could not fetch that PDF: {exc}") from exc
-
-    raise HTTPException(502, "Too many redirects while fetching the PDF.")
 
 
 def _norm_repeat(text: str) -> str:
