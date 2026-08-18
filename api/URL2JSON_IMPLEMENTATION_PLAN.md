@@ -32,7 +32,7 @@ flowchart LR
 
 ### Implementation
 
-- [ ] Define the shared `paper.document.v1` format.
+- [x] Define the shared `paper.document.v1` format.
 - [ ] Build `Inspect source`: fetch the URL, identify the source, and reject anything unreadable.
 - [ ] Keep the current PDF extractor working behind the new flow.
 - [ ] Add HTML extraction for readable pages and books.
