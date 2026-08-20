@@ -46,6 +46,11 @@ def readable_html() -> bytes:
     )
 
 
+def obvious_book_html() -> bytes:
+    body = "A continuous chapter of a public book, written for a person to read. " * 700
+    return f"<!doctype html><html><body><main><h1>A Long Book</h1><p>{body}</p></main></body></html>".encode()
+
+
 def readable_pdf() -> bytes:
     document = pymupdf.open()
     page = document.new_page()
@@ -78,6 +83,55 @@ def test_inspect_source_accepts_a_substantive_html_page():
 
     assert source.type == "html"
     assert source.content_type == "text/html"
+    assert source.readability_route == "needs_intelligence"
+
+
+def test_inspect_source_auto_accepts_a_large_low_link_reading_surface():
+    source = run(
+        lambda request: response(request, body=obvious_book_html(), content_type="text/html"),
+        "https://example.org/full-book",
+    )
+
+    assert source.readability_route == "auto_accept"
+    assert source.html_analysis is not None
+    assert source.html_analysis.reading_surface["tag"] == "main"
+    assert source.html_analysis.reading_surface["visible_text_characters"] >= 40_000
+    assert source.html_analysis.reading_surface["link_text_ratio"] == 0.0
+
+
+def test_inspect_source_keeps_a_large_link_heavy_catalog_for_intelligence():
+    entries = "".join(
+        f"<li><a href='/work-{index}'>A catalog entry with a long linked title {index}</a></li>"
+        for index in range(1_000)
+    )
+    catalog = f"<html><body><main><h1>Catalog</h1><ul>{entries}</ul></main></body></html>".encode()
+
+    source = run(
+        lambda request: response(request, body=catalog, content_type="text/html"),
+        "https://example.org/catalog",
+    )
+
+    assert source.readability_route == "needs_intelligence"
+    assert source.html_analysis is not None
+    assert source.html_analysis.reading_surface["visible_text_characters"] >= 40_000
+    assert source.html_analysis.reading_surface["link_text_ratio"] == 1.0
+
+
+def test_inspect_source_uses_the_whole_body_when_a_book_is_split_into_many_chapters():
+    chapter = "A chapter of a public book, written for a person to read. " * 260
+    html = "<html><body><h1>A Long Book</h1>" + "".join(
+        f"<div><h2>Chapter {number}</h2><p>{chapter}</p></div>"
+        for number in range(1, 8)
+    ) + "</body></html>"
+
+    source = run(
+        lambda request: response(request, body=html.encode(), content_type="text/html"),
+        "https://example.org/many-chapters",
+    )
+
+    assert source.readability_route == "auto_accept"
+    assert source.html_analysis is not None
+    assert source.html_analysis.reading_surface["selection"] == "body_fallback"
 
 
 def test_inspect_source_follows_a_relative_redirect_and_records_the_final_url():
@@ -96,8 +150,7 @@ def test_inspect_source_follows_a_relative_redirect_and_records_the_final_url():
     ("body", "content_type", "status", "message"),
     [
         (b"\x89PNG\r\n", "image/png", 415, "supported readable PDF or HTML"),
-        (b"<html><body>Sign in</body></html>", "text/html", 422, "enough readable public text"),
-        (readable_html().replace(b"<main>", b'<main><input type="password">'), "text/html", 422, "enough readable public text"),
+        (b"This is not HTML.", "text/html", 422, "inspectable public text"),
     ],
 )
 def test_inspect_source_rejects_unsupported_or_unreadable_responses(body, content_type, status, message):
@@ -109,24 +162,36 @@ def test_inspect_source_rejects_unsupported_or_unreadable_responses(body, conten
 
 
 def test_inspect_source_rejects_a_lying_html_content_type():
-    with pytest.raises(HTTPException, match="enough readable public text"):
+    with pytest.raises(HTTPException, match="inspectable public text"):
         run(
             lambda request: response(request, body=b"This is not HTML.", content_type="text/html"),
             "https://example.org/not-a-page",
         )
 
 
-def test_inspect_source_rejects_a_substantive_bot_check_page_by_its_title():
+def test_inspect_source_defers_login_and_bot_check_judgment_to_the_ai_step():
     bot_check = readable_html().replace(
         b"<html>",
         b"<html><head><title>Checking your browser</title></head>",
     )
 
-    with pytest.raises(HTTPException, match="enough readable public text"):
-        run(
-            lambda request: response(request, body=bot_check, content_type="text/html"),
-            "https://example.org/challenge",
-        )
+    source = run(
+        lambda request: response(request, body=bot_check, content_type="text/html"),
+        "https://example.org/challenge",
+    )
+
+    assert source.type == "html"
+
+
+def test_inspect_source_accepts_old_html_markup_for_the_ai_step_to_judge():
+    old_markup = b"<html><body><font>" + b"A long public essay in old markup. " * 20 + b"</font></body></html>"
+
+    source = run(
+        lambda request: response(request, body=old_markup, content_type="text/html"),
+        "https://example.org/old-essay",
+    )
+
+    assert source.type == "html"
 
 
 def test_inspect_source_uses_html_bytes_when_a_server_omits_the_right_mime_type():

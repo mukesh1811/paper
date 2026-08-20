@@ -1,8 +1,8 @@
 """Safely fetch and identify public sources before Paper reads them.
 
 This layer deliberately does *not* extract reader blocks or generate text.  It
-only answers a small, testable question: did a public URL return a PDF or a
-substantive HTML document that the later readers can handle?
+only answers a small, testable question: did a public URL return a PDF or an
+HTML document that later stages can inspect?
 """
 
 from __future__ import annotations
@@ -21,23 +21,27 @@ import pymupdf
 from fastapi import HTTPException
 from httpcore._backends.auto import AutoBackend
 
+from api.html_source_analysis import HTMLSourceAnalysis, analyze_html_source
+
 MAX_SOURCE_BYTES = 30 * 1024 * 1024
 MAX_REDIRECTS = 4
 USER_AGENT = "Paper/0.1 (+public-internet reader)"
-MIN_HTML_TEXT_CHARACTERS = 200
 MIN_PDF_WORDS = 20
 
 SourceType = Literal["pdf", "html"]
+ReadabilityRoute = Literal["auto_accept", "needs_intelligence"]
 
 
 @dataclass(frozen=True)
 class InspectedSource:
-    """An in-memory public source that passed the initial reading checks."""
+    """An in-memory public source and its deterministic routing result."""
 
     url: str
     type: SourceType
     payload: bytes
     content_type: str | None
+    readability_route: ReadabilityRoute = "needs_intelligence"
+    html_analysis: HTMLSourceAnalysis | None = None
 
 
 class _PinnedNetworkBackend(httpcore.AsyncNetworkBackend):
@@ -104,8 +108,8 @@ class _PinnedAsyncHTTPTransport(httpx.AsyncHTTPTransport):
         )
 
 
-class _VisibleTextParser(HTMLParser):
-    """Count visible HTML text without pretending to be the HTML extractor."""
+class _HtmlSignalParser(HTMLParser):
+    """Confirm HTML markup and collect source signals without extracting it."""
 
     _IGNORED_TAGS = {"head", "script", "style", "template", "noscript", "svg"}
 
@@ -113,25 +117,17 @@ class _VisibleTextParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self._ignored_depth = 0
         self.visible_text: list[str] = []
-        self.has_content_container = False
-        self.has_password_field = False
+        self.has_html_markup = False
         self._title_depth = 0
         self.title_text: list[str] = []
-        self.long_text_runs = 0
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+    def handle_starttag(self, tag: str, _attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
-        if tag in {"article", "main", "p", "section"}:
-            self.has_content_container = True
+        self.has_html_markup = True
         if tag in self._IGNORED_TAGS:
             self._ignored_depth += 1
         if tag == "title":
             self._title_depth += 1
-        if tag == "input" and any(
-            name.lower() == "type" and (value or "").lower() == "password"
-            for name, value in attrs
-        ):
-            self.has_password_field = True
 
     def handle_endtag(self, tag: str) -> None:
         if tag.lower() in self._IGNORED_TAGS and self._ignored_depth:
@@ -148,8 +144,6 @@ class _VisibleTextParser(HTMLParser):
         if self._ignored_depth:
             return
         self.visible_text.append(text)
-        if len(text) >= 80:
-            self.long_text_runs += 1
 
 
 def clean_public_url(url: str) -> str:
@@ -231,8 +225,8 @@ def _is_readable_pdf(payload: bytes) -> bool:
         document.close()
 
 
-def _is_readable_html(payload: bytes) -> bool:
-    """Reject blank, non-HTML, and clear error or login responses before extraction."""
+def _is_inspectable_html(payload: bytes) -> bool:
+    """Accept parseable HTML with source text for the AI readability decision."""
 
     try:
         html = payload.decode("utf-8-sig")
@@ -242,32 +236,14 @@ def _is_readable_html(payload: bytes) -> bool:
         # different source type; extraction will apply the final decode policy.
         html = payload.decode("cp1252", errors="replace")
 
-    parser = _VisibleTextParser()
+    parser = _HtmlSignalParser()
     try:
         parser.feed(html)
         parser.close()
     except Exception:
         return False
 
-    visible_text = " ".join(parser.visible_text)
-    title = " ".join(parser.title_text).lower()
-    blocked_titles = (
-        "access denied",
-        "captcha",
-        "checking your browser",
-        "just a moment",
-        "not found",
-        "page not found",
-        "sign in",
-        "log in",
-    )
-    return (
-        parser.has_content_container
-        and not parser.has_password_field
-        and len(visible_text) >= MIN_HTML_TEXT_CHARACTERS
-        and parser.long_text_runs >= 1
-        and not any(marker in title for marker in blocked_titles)
-    )
+    return parser.has_html_markup and bool(parser.visible_text or parser.title_text)
 
 
 def _identify_source(payload: bytes, content_type: str | None) -> SourceType:
@@ -277,11 +253,10 @@ def _identify_source(payload: bytes, content_type: str | None) -> SourceType:
         return "pdf"
 
     is_html_content_type = content_type in {"text/html", "application/xhtml+xml"}
-    if (is_html_content_type or _looks_like_html(payload)) and _is_readable_html(payload):
-        return "html"
-
     if is_html_content_type or _looks_like_html(payload):
-        raise HTTPException(422, "That HTML page does not contain enough readable public text.")
+        if _is_inspectable_html(payload):
+            return "html"
+        raise HTTPException(422, "That HTML page has no inspectable public text.")
     raise HTTPException(415, "That URL did not return a supported readable PDF or HTML page.")
 
 
@@ -342,11 +317,20 @@ async def inspect_source(
 
             payload = bytes(data)
             content_type = _header_content_type(response)
+            source_type = _identify_source(payload, content_type)
+            html_analysis = analyze_html_source(payload) if source_type == "html" else None
+            readability_route: ReadabilityRoute = (
+                "auto_accept"
+                if html_analysis is not None and html_analysis.has_obvious_reading_surface
+                else "needs_intelligence"
+            )
             return InspectedSource(
                 url=current,
-                type=_identify_source(payload, content_type),
+                type=source_type,
                 payload=payload,
                 content_type=content_type,
+                readability_route=readability_route,
+                html_analysis=html_analysis,
             )
 
     raise HTTPException(502, "Too many redirects while fetching the source.")

@@ -1,0 +1,419 @@
+{
+  "schema": "paper.inspect-eval.v1",
+  "description": "Live public URLs for Paper's source-inspection and readability regression suite. Re-run after any inspect prompt, model, fetch, or dossier change.",
+  "validated_at": "2026-08-21",
+  "contract": {
+    "accept": "The URL itself contains one public, coherent work that can be read from start to finish.",
+    "reject": "The URL is a catalog, index, page shell, login, error, or fragment rather than the work itself.",
+    "fetch_reject": "The URL should be rejected before the readability model because it is not a supported readable source type."
+  },
+  "cases": [
+    {
+      "id": "gutenberg-pride-and-prejudice",
+      "url": "https://www.gutenberg.org/cache/epub/1342/pg1342-images.html",
+      "source_type": "html",
+      "shape": [
+        "book",
+        "public-domain",
+        "semantic-html"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "The complete book is present in this URL."
+    },
+    {
+      "id": "standard-ebooks-pride-and-prejudice-single-page",
+      "url": "https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice/text/single-page",
+      "source_type": "html",
+      "shape": [
+        "book",
+        "xhtml",
+        "online-reader",
+        "single-page"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "Standard Ebooks exposes the complete book in its public single-page online reader."
+    },
+    {
+      "id": "paul-graham-what-you-cant-say",
+      "url": "https://www.paulgraham.com/say.html",
+      "source_type": "html",
+      "shape": [
+        "essay",
+        "old-html",
+        "legacy-markup"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "A full essay in old-style markup without modern semantic containers."
+    },
+    {
+      "id": "us-constitution-transcript",
+      "url": "https://www.archives.gov/founding-docs/constitution-transcript",
+      "source_type": "html",
+      "shape": [
+        "primary-source",
+        "transcript",
+        "legal-text"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "The complete transcribed document is the primary content."
+    },
+    {
+      "id": "us-bill-of-rights-transcript",
+      "url": "https://www.archives.gov/founding-docs/bill-of-rights-transcript",
+      "source_type": "html",
+      "shape": [
+        "primary-source",
+        "short-complete-work",
+        "legal-text"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "A short page may still be a complete work; Paper is not only for long documents."
+    },
+    {
+      "id": "un-charter",
+      "url": "https://www.un.org/en/about-us/un-charter/full-text",
+      "source_type": "html",
+      "shape": [
+        "legal-text",
+        "primary-source",
+        "long-document"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "The URL contains the full public text of one charter."
+    },
+    {
+      "id": "gnu-gpl-v3",
+      "url": "https://www.gnu.org/licenses/gpl-3.0.en.html",
+      "source_type": "html",
+      "shape": [
+        "legal-text",
+        "old-html",
+        "long-document"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "The complete license text is directly readable at the URL."
+    },
+    {
+      "id": "w3c-png-specification",
+      "url": "https://www.w3.org/TR/png/",
+      "source_type": "html",
+      "shape": [
+        "technical-specification",
+        "long-document",
+        "dense-navigation"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "Dense navigation surrounds one complete technical specification."
+    },
+    {
+      "id": "rfc-9110",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "source_type": "html",
+      "shape": [
+        "technical-specification",
+        "long-document",
+        "formal-structure"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "One complete technical standard with its full body at this URL."
+    },
+    {
+      "id": "mdn-javascript-introduction",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Introduction",
+      "source_type": "html",
+      "shape": [
+        "technical-tutorial",
+        "modern-html",
+        "sidebar-navigation"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "A single tutorial chapter, despite site chrome and sidebar navigation."
+    },
+    {
+      "id": "tolstoy-two-old-men-pdf",
+      "url": "https://tolstoyarchive.org/Fiction/books/The%20Two%20Old%20Men.pdf",
+      "source_type": "pdf",
+      "shape": [
+        "book",
+        "pdf",
+        "selectable-text"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "A text-based book PDF."
+    },
+    {
+      "id": "attention-is-all-you-need-pdf",
+      "url": "https://arxiv.org/pdf/1706.03762",
+      "source_type": "pdf",
+      "shape": [
+        "research-paper",
+        "pdf",
+        "two-column"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "A complete selectable-text research paper PDF."
+    },
+    {
+      "id": "arxiv-accessibility-report-pdf",
+      "url": "https://arxiv.org/pdf/2212.07286",
+      "source_type": "pdf",
+      "shape": [
+        "research-report",
+        "pdf",
+        "html-alternative-exists"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "accept"
+      },
+      "rationale": "A complete public report PDF."
+    },
+    {
+      "id": "gutenberg-reading-lists",
+      "url": "https://www.gutenberg.org/ebooks/bookshelf/",
+      "source_type": "html",
+      "shape": [
+        "catalog",
+        "technical-false-positive",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "It passes HTML inspection but is a collection of books, not one work."
+    },
+    {
+      "id": "paul-graham-essays-index",
+      "url": "https://www.paulgraham.com/articles.html",
+      "source_type": "html",
+      "shape": [
+        "author-index",
+        "old-html",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "An index of essays rather than one essay."
+    },
+    {
+      "id": "national-archives-founding-documents-index",
+      "url": "https://www.archives.gov/founding-docs",
+      "source_type": "html",
+      "shape": [
+        "institution-index",
+        "landing-page",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A landing page pointing to several documents."
+    },
+    {
+      "id": "w3c-technical-reports-index",
+      "url": "https://www.w3.org/TR/",
+      "source_type": "html",
+      "shape": [
+        "specification-index",
+        "landing-page",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A list of specifications, not a specification itself."
+    },
+    {
+      "id": "mdn-javascript-guide-index",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide",
+      "source_type": "html",
+      "shape": [
+        "documentation-index",
+        "modern-html",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A guide hub whose chapters live at child URLs."
+    },
+    {
+      "id": "python-tutorial-index",
+      "url": "https://docs.python.org/3/tutorial/",
+      "source_type": "html",
+      "shape": [
+        "tutorial-index",
+        "linked-content",
+        "technical-documentation"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "The tutorial content is split across child URLs, not contained here."
+    },
+    {
+      "id": "arxiv-homepage",
+      "url": "https://arxiv.org/",
+      "source_type": "html",
+      "shape": [
+        "homepage",
+        "feed",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A site homepage and discovery surface, not one readable work."
+    },
+    {
+      "id": "attention-is-all-you-need-abstract",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "source_type": "html",
+      "shape": [
+        "abstract",
+        "paper-metadata",
+        "incomplete-work"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "It contains metadata and an abstract, not the full paper."
+    },
+    {
+      "id": "gutenberg-pride-and-prejudice-metadata",
+      "url": "https://www.gutenberg.org/ebooks/1342",
+      "source_type": "html",
+      "shape": [
+        "book-metadata",
+        "download-page",
+        "incomplete-work"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A book metadata and download page, not the book text."
+    },
+    {
+      "id": "standard-ebooks-pride-and-prejudice-metadata",
+      "url": "https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice",
+      "source_type": "html",
+      "shape": [
+        "book-metadata",
+        "xhtml",
+        "download-page",
+        "future-epub"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "The title page describes and links to the ebook but does not contain the book text."
+    },
+    {
+      "id": "rfc-editor-index",
+      "url": "https://www.rfc-editor.org/",
+      "source_type": "html",
+      "shape": [
+        "standards-index",
+        "landing-page",
+        "many-links"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A standards discovery page, not one RFC."
+    },
+    {
+      "id": "github-login",
+      "url": "https://github.com/login",
+      "source_type": "html",
+      "shape": [
+        "login",
+        "form",
+        "access-gated"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A login form, not public reading content."
+    },
+    {
+      "id": "example-domain",
+      "url": "https://example.com/",
+      "source_type": "html",
+      "shape": [
+        "short-placeholder",
+        "minimal-html",
+        "not-a-work"
+      ],
+      "expected": {
+        "stage": "readability",
+        "verdict": "reject"
+      },
+      "rationale": "A short placeholder page rather than a readable work."
+    },
+    {
+      "id": "gutenberg-cover-image",
+      "url": "https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg",
+      "source_type": "image",
+      "shape": [
+        "image",
+        "unsupported-format"
+      ],
+      "expected": {
+        "stage": "fetch",
+        "verdict": "reject",
+        "http_status": 415
+      },
+      "rationale": "An image must be rejected before the readability model runs."
+    }
+  ]
+}
