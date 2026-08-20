@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#132635" />
   <meta name="robots" content="noindex,follow" />
-  <meta name="description" content="Open a public PDF in Paper's calm, reflowed reading view." />
+  <meta name="description" content="Open a public document in Paper's calm, reflowed reading view." />
   <link rel="canonical" href="/read" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <title>Open a document — Paper</title>
@@ -36,16 +36,16 @@
         <div class="read-copy">
           <p class="eyebrow"><span class="eyebrow-dot"></span> Open a document</p>
           <h1 id="read-title">Give the words a better place to be <em>read.</em></h1>
-          <p class="read-lede">Paste a public PDF link. Paper will clear away the fixed page and make room for a calm, comfortable reading view.</p>
-          <form id="url-form" class="reader-launcher" aria-label="Open a public PDF">
-            <label class="sr-only" for="pdf-url">Public PDF URL</label>
+          <p class="read-lede">Paste a public document link. Paper will make room for a calm, comfortable reading view.</p>
+          <form id="url-form" class="reader-launcher" aria-label="Open a public document">
+            <label class="sr-only" for="source-url">Public document URL</label>
             <div class="url-box">
-              <input id="pdf-url" type="url" required autocomplete="off" spellcheck="false" placeholder="Paste a public PDF link to start" value="https://tolstoyarchive.org/Fiction/books/The%20Two%20Old%20Men.pdf" />
+              <input id="source-url" type="url" required autocomplete="off" spellcheck="false" placeholder="Paste a public document link to start" value="https://tolstoyarchive.org/Fiction/books/The%20Two%20Old%20Men.pdf" />
               <button id="read-button" type="submit">Read this document <span aria-hidden="true">&rarr;</span></button>
             </div>
           </form>
           <p id="status" class="status" aria-live="polite"></p>
-          <p class="read-note">Currently supported: public HTTP or HTTPS links to selectable-text PDFs. No account or upload step.</p>
+          <p class="read-note">Currently supported: public HTTP or HTTPS links to selectable-text PDFs and readable HTML pages. No account or upload step.</p>
         </div>
 
         <div class="read-sheet" aria-hidden="true">
@@ -60,13 +60,13 @@
       <section class="read-support" aria-labelledby="support-title">
         <div>
           <div class="section-kicker">Start with the first source</div>
-          <h2 id="support-title">A public PDF is all Paper needs.</h2>
+          <h2 id="support-title">A public URL is all Paper needs.</h2>
         </div>
         <div>
-          <p>Try the Tolstoy sample already in the field, or replace it with any public PDF URL. Paper handles the reading surface; the original source remains yours.</p>
+          <p>Try the Tolstoy sample already in the field, or replace it with a public PDF or readable HTML URL. Paper handles the reading surface; the original source remains yours.</p>
           <div class="read-facts" aria-label="Current support">
             <div class="read-fact"><strong>Input</strong><span>Public URL</span></div>
-            <div class="read-fact"><strong>Format</strong><span>Selectable-text PDF</span></div>
+            <div class="read-fact"><strong>Format</strong><span>PDF and readable HTML</span></div>
             <div class="read-fact"><strong>Output</strong><span>Reflowed reading view</span></div>
             <div class="read-fact"><strong>Progress</strong><span>Saved in your browser</span></div>
           </div>

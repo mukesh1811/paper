@@ -339,6 +339,28 @@ def test_openrouter_adapter_uses_strict_structured_output_and_supported_provider
     assert payload["messages"][0] == {"role": "system", "content": MODEL_INSTRUCTIONS}
 
 
+def test_openrouter_adapter_retries_a_temporary_provider_overload(monkeypatch):
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            return httpx.Response(429, text="provider overloaded", request=request)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": '{"verdict":"accept","evidence_ids":["b1"]}'}}]},
+            request=request,
+        )
+
+    monkeypatch.setattr("api.inspect_readability.MODEL_RETRY_DELAYS_SECONDS", (0,))
+    adapter = OpenRouterReadabilityModel(api_key="test-key", transport=httpx.MockTransport(handler))
+
+    result = asyncio.run(adapter.create_decision(model="test/model", input_text="{}"))
+
+    assert json.loads(result)["verdict"] == "accept"
+    assert len(calls) == 2
+
+
 def test_credit_exhaustion_has_an_actionable_model_error_message():
     credit_response = httpx.Response(429, json={"error": {"message": "Insufficient credits"}})
     busy_response = httpx.Response(429, json={"error": {"message": "Too many requests"}})

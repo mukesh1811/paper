@@ -39,14 +39,14 @@ flowchart LR
 - [x] Build `Fetch + identify format`: safely fetch public PDF/HTML sources and reject unsupported responses.
 - [x] Extend `Fetch + inspect source`: auto-accept an obvious reading surface (for example, a long, low-link-density book body); reject unsupported or textless sources; send only unclear sources to AI.
 - [x] Build `Inspect unclear sources`: use one DeepSeek call on the complete meaningful source DOM. The model can return only a verdict and supplied source-block IDs.
-- [ ] Keep the current PDF extractor working behind the new flow.
-- [ ] Add HTML extraction for readable pages and books.
-- [ ] Turn extracted text into evidence blocks with source locations.
-- [ ] Add the structure agent to arrange blocks using references only.
-- [ ] Validate the references and return `paper.document.v1`.
-- [ ] Connect `/api/read` and the frontend to the new response.
-- [ ] Add tests for PDFs, HTML, unreadable pages, and bad URLs.
-- [ ] Add chunking and background jobs for very long sources.
+- [x] Keep the current PDF extractor working behind the new flow.
+- [x] Add HTML extraction for readable pages and books.
+- [x] Turn extracted text into evidence blocks with source locations.
+- [x] Add the structure agent to arrange blocks using references only.
+- [x] Validate the references and return `paper.document.v1`.
+- [x] Connect `/api/read` and the frontend to the new response.
+- [x] Add tests for PDFs, HTML, unreadable pages, and bad URLs.
+- [x] Add chunking and background jobs for very long sources.
 
 ### Backlog
 

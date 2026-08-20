@@ -32,10 +32,10 @@ from api.inspect_readability import (
     DEFAULT_INSPECTION_MODEL,
     INSPECTION_TEMPERATURE,
     MODEL_INSTRUCTIONS,
-    OPENROUTER_CHAT_COMPLETIONS_URL,
     READABILITY_SCHEMA,
     READABILITY_PROVIDER_PREFERENCES,
     _openrouter_api_key_from_environment,
+    _post_with_transient_retries,
     _validate_decision,
     build_readability_dossier,
     deterministic_readability_decision,
@@ -149,14 +149,14 @@ async def _model_decision(
         timeout=httpx.Timeout(30.0, connect=10.0),
         trust_env=False,
     ) as client:
-        response = await client.post(
-            OPENROUTER_CHAT_COMPLETIONS_URL,
+        response = await _post_with_transient_retries(
+            client,
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
                 "X-Title": "Paper",
             },
-            json=_request_payload(model, input_text),
+            request_payload=_request_payload(model, input_text),
         )
     latency_ms = round((time.perf_counter() - started) * 1000)
     if response.is_error:

@@ -121,6 +121,7 @@ class HTMLSourceAnalysis:
     reading_surface_text: str
     dom_nodes: tuple["HTMLDOMNode", ...]
     source_blocks: tuple["HTMLSourceBlock", ...]
+    node_selectors: dict[str, str]
 
     @property
     def has_obvious_reading_surface(self) -> bool:
@@ -441,6 +442,29 @@ class _HTMLSourceParser(HTMLParser):
             for group in groups.values()
         )
 
+    def node_selectors(self) -> dict[str, str]:
+        """Address each tracked source node with a deterministic CSS path.
+
+        The path deliberately uses only element names and sibling positions. It
+        does not trust page-provided IDs or classes, and it can be checked again
+        against the fetched source when a reader block is validated.
+        """
+
+        selectors: dict[str, str] = {}
+
+        def visit(node: _HTMLNode, parent_selector: str) -> None:
+            children = [item for item in node.content if isinstance(item, _HTMLNode)]
+            seen_by_tag: dict[str, int] = {}
+            for child in children:
+                seen_by_tag[child.tag] = seen_by_tag.get(child.tag, 0) + 1
+                component = f"{child.tag}:nth-of-type({seen_by_tag[child.tag]})"
+                selector = f"{parent_selector} > {component}" if parent_selector else component
+                selectors[child.id] = selector
+                visit(child, selector)
+
+        visit(self.root, "")
+        return selectors
+
 
 def analyze_html_source(payload: bytes) -> HTMLSourceAnalysis:
     """Measure a fetched HTML source without making a semantic model decision."""
@@ -462,6 +486,7 @@ def analyze_html_source(payload: bytes) -> HTMLSourceAnalysis:
         reading_surface_text=_node_text(surface_node),
         dom_nodes=parser.dom_nodes(source_blocks),
         source_blocks=source_blocks,
+        node_selectors=parser.node_selectors(),
     )
 
 

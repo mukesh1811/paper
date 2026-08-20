@@ -1,7 +1,7 @@
 const home = document.querySelector('#home');
 const reader = document.querySelector('#reader');
 const form = document.querySelector('#url-form');
-const urlInput = document.querySelector('#pdf-url');
+const urlInput = document.querySelector('#source-url');
 const readButton = document.querySelector('#read-button');
 const status = document.querySelector('#status');
 const book = document.querySelector('#book');
@@ -52,17 +52,39 @@ function apiBaseUrl() {
   return configured.replace(/\/$/, '');
 }
 
+function delay(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function waitForReadJob(statusUrl) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const response = await fetch(`${apiBaseUrl()}${statusUrl}`);
+    let payload;
+    try { payload = await response.json(); } catch { payload = {}; }
+    if (!response.ok) throw new Error(payload.detail || 'Could not prepare that document.');
+    if (payload.status === 'complete' && payload.document) return payload.document;
+    if (payload.status === 'failed') throw new Error(payload.detail || 'Could not prepare that document.');
+    await delay(1000);
+  }
+  throw new Error('Paper is taking too long to prepare that document. Please try again.');
+}
+
 function renderBook(data) {
+  const metadata = data.metadata || {};
+  const title = metadata.title || 'Untitled document';
   const fragments = [];
-  fragments.push(`<h1 class="book-title">${escapeText(data.title)}</h1>`);
-  if (data.author) fragments.push(`<div class="book-author">${escapeText(data.author)}</div>`);
+  fragments.push(`<h1 class="book-title">${escapeText(title)}</h1>`);
+  if (metadata.author) fragments.push(`<div class="book-author">${escapeText(metadata.author)}</div>`);
   for (const block of data.blocks) {
     if (block.type === 'heading') fragments.push(`<h2>${escapeText(block.text)}</h2>`);
+    else if (block.type === 'quote') fragments.push(`<blockquote>${escapeText(block.text)}</blockquote>`);
+    else if (block.type === 'code') fragments.push(`<pre>${escapeText(block.text)}</pre>`);
+    else if (block.type === 'list_item') fragments.push(`<p class="book-list-item">${escapeText(block.text)}</p>`);
     else fragments.push(`<p>${escapeText(block.text)}</p>`);
   }
   book.innerHTML = fragments.join('');
-  barTitle.textContent = data.title;
-  document.title = `${data.title} — Paper`;
+  barTitle.textContent = title;
+  document.title = `${title} — Paper`;
 }
 
 function storageKey() {
@@ -89,7 +111,7 @@ function updateProgress() {
   saveTimer = setTimeout(() => localStorage.setItem(storageKey(), ratio.toString()), 120);
 }
 
-async function openPdf(url, pushState = true) {
+async function openSource(url, pushState = true) {
   activeUrl = url.trim();
   status.className = 'status';
   status.textContent = 'Fetching and reflowing…';
@@ -98,7 +120,12 @@ async function openPdf(url, pushState = true) {
     const response = await fetch(`${apiBaseUrl()}/api/read?url=${encodeURIComponent(activeUrl)}`);
     let payload;
     try { payload = await response.json(); } catch { payload = {}; }
-    if (!response.ok) throw new Error(payload.detail || 'Could not open that PDF.');
+    if (!response.ok) throw new Error(payload.detail || 'Could not open that document.');
+    if (response.status === 202) {
+      if (!payload.status_url) throw new Error('Paper could not start preparing that document.');
+      status.textContent = 'Preparing a long document…';
+      payload = await waitForReadJob(payload.status_url);
+    }
     renderBook(payload);
     home.classList.add('hidden');
     reader.classList.remove('hidden');
@@ -117,7 +144,7 @@ async function openPdf(url, pushState = true) {
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
-  openPdf(urlInput.value);
+  openSource(urlInput.value);
 });
 
 back.addEventListener('click', () => {
@@ -159,5 +186,5 @@ applySettings();
 const initialUrl = new URLSearchParams(location.search).get('url');
 if (initialUrl) {
   urlInput.value = initialUrl;
-  openPdf(initialUrl, false);
+  openSource(initialUrl, false);
 }

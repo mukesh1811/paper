@@ -9,6 +9,7 @@ return only a verdict and supplied source-block IDs; it never returns reader tex
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from dataclasses import dataclass
@@ -27,6 +28,10 @@ DEFAULT_INSPECTION_MODEL = "deepseek/deepseek-v4-flash"
 INSPECTION_TEMPERATURE = 0
 INSPECTION_PROVIDER = "deepinfra"
 MAX_EVIDENCE_ITEMS = 4
+# DeepInfra occasionally keeps a shared-pool request in overload for longer
+# than a normal HTTP retry. Retrying for 32 seconds avoids treating that
+# temporary capacity dip as a source-classification failure.
+MODEL_RETRY_DELAYS_SECONDS = (1.0, 3.0, 8.0, 20.0)
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
 READABILITY_PROVIDER_PREFERENCES = {
@@ -197,14 +202,14 @@ class OpenRouterReadabilityModel:
                 transport=self._transport,
                 trust_env=False,
             ) as client:
-                response = await client.post(
-                    OPENROUTER_CHAT_COMPLETIONS_URL,
+                response = await _post_with_transient_retries(
+                    client,
                     headers={
                         "Authorization": f"Bearer {self._api_key}",
                         "Content-Type": "application/json",
                         "X-Title": "Paper",
                     },
-                    json=request_payload,
+                    request_payload=request_payload,
                 )
         except httpx.HTTPError as exc:
             raise HTTPException(503, "Paper's readability model is unavailable. Please try again.") from exc
@@ -224,6 +229,26 @@ class OpenRouterReadabilityModel:
         if not isinstance(output_text, str) or not output_text.strip():
             raise HTTPException(502, "Paper's readability model returned no decision.")
         return output_text
+
+
+async def _post_with_transient_retries(
+    client: httpx.AsyncClient,
+    *,
+    headers: dict[str, str],
+    request_payload: dict[str, Any],
+) -> httpx.Response:
+    """Retry only temporary provider overloads; semantic requests run once."""
+
+    for delay in (*MODEL_RETRY_DELAYS_SECONDS, None):
+        response = await client.post(
+            OPENROUTER_CHAT_COMPLETIONS_URL,
+            headers=headers,
+            json=request_payload,
+        )
+        if response.status_code not in {429, 500, 502, 503, 504} or delay is None:
+            return response
+        await asyncio.sleep(delay)
+    raise AssertionError("The retry loop must return its final HTTP response.")
 
 
 def _rate_limit_message(response: httpx.Response) -> str:
