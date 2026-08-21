@@ -1,18 +1,26 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.extract_source import extract_source
 from api.inspect_source import InspectedSource
 from api.read_jobs import read_jobs
-from api.reader_pipeline import complete_prepared_read, extracted_character_count, prepare_read
+from api.reader_pipeline import (
+    PreparedRead,
+    complete_prepared_read,
+    extracted_character_count,
+    prepare_read,
+    source_passport,
+)
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = APP_DIR.parent
@@ -257,17 +265,91 @@ def extract_book(pdf_bytes: bytes) -> dict:
     }
 
 
+def _sse(event: str, payload: dict[str, object]) -> str:
+    """Encode one small server-sent event for the preparation surface."""
+
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@app.get("/api/read/events")
+async def stream_read_document(url: str = Query(..., min_length=8, max_length=4096)) -> StreamingResponse:
+    """Keep one request open while it prepares a source and reports real stages.
+
+    This intentionally streams from the request-owning Cloud Run instance. It
+    avoids treating a process-local background job as durable state that a
+    later poll could safely find on another instance.
+    """
+
+    events: asyncio.Queue[tuple[str, dict[str, object]] | None] = asyncio.Queue()
+
+    def report(stage: str, prepared: PreparedRead | None, detail: dict[str, object] | None) -> None:
+        payload: dict[str, object] = {"stage": stage}
+        if detail:
+            payload.update(detail)
+        if prepared is not None:
+            payload["passport"] = source_passport(prepared)
+        events.put_nowait(("progress", payload))
+
+    async def prepare() -> None:
+        try:
+            prepared = await prepare_read(url, progress=report)
+            document = await complete_prepared_read(prepared, progress=report)
+            events.put_nowait(
+                ("complete", {"document": document.model_dump(mode="json", by_alias=True, exclude_none=True)})
+            )
+        except HTTPException as exc:
+            events.put_nowait(("error", {"detail": str(exc.detail)}))
+        except Exception:
+            events.put_nowait(("error", {"detail": "Paper could not prepare that document."}))
+        finally:
+            events.put_nowait(None)
+
+    async def event_stream():
+        task = asyncio.create_task(prepare())
+        yield _sse("progress", {"stage": "fetching"})
+        try:
+            while event := await events.get():
+                event_name, payload = event
+                yield _sse(event_name, payload)
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/api/read", response_model=None)
 async def read_document(
     url: str = Query(..., min_length=8, max_length=4096),
     background: bool = Query(False),
 ) -> dict | JSONResponse:
+    if background:
+        job = await read_jobs.submit_url(url)
+        return JSONResponse(
+            status_code=202,
+            content={
+                "job_id": job.id,
+                "status": job.status,
+                "stage": job.stage,
+                "status_url": f"/api/read/jobs/{job.id}",
+            },
+        )
+
     prepared = await prepare_read(url)
-    if background or extracted_character_count(prepared.extracted) > BACKGROUND_CHARACTER_THRESHOLD:
+    if extracted_character_count(prepared.extracted) > BACKGROUND_CHARACTER_THRESHOLD:
         job = await read_jobs.submit(prepared)
         return JSONResponse(
             status_code=202,
-            content={"job_id": job.id, "status": job.status, "status_url": f"/api/read/jobs/{job.id}"},
+            content={
+                "job_id": job.id,
+                "status": job.status,
+                "stage": job.stage,
+                "status_url": f"/api/read/jobs/{job.id}",
+            },
         )
     document = await complete_prepared_read(prepared)
     return document.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -276,8 +358,12 @@ async def read_document(
 @app.get("/api/read/jobs/{job_id}")
 def read_job(job_id: str) -> dict:
     job = read_jobs.get(job_id)
+    response: dict[str, object] = {"status": job.status, "stage": job.stage}
+    if job.passport is not None:
+        response["passport"] = job.passport
     if job.status == "complete" and job.document is not None:
-        return {"status": "complete", "document": job.document.model_dump(mode="json", by_alias=True, exclude_none=True)}
+        response["document"] = job.document.model_dump(mode="json", by_alias=True, exclude_none=True)
+        return response
     if job.status == "failed":
-        return {"status": "failed", "detail": job.error_detail or "Paper could not prepare that document."}
-    return {"status": "running"}
+        response["detail"] = job.error_detail or "Paper could not prepare that document."
+    return response

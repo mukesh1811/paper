@@ -6,6 +6,7 @@ ordered block ranges.  It cannot create, alter, or quote reader text.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from dataclasses import dataclass
@@ -28,6 +29,13 @@ from api.inspect_source import InspectedSource
 
 MAX_STRUCTURE_RANGES = 24
 STRUCTURE_CHUNK_CHARACTERS = 160_000
+# A long source is planned one chunk at a time. The chunks are independent, so
+# they run together rather than end to end; the cap keeps a book from opening a
+# connection per chunk all at once.
+STRUCTURE_CHUNK_CONCURRENCY = 4
+# Each chunk is a read-only request, so a provider failure on one of them is
+# worth another attempt before it costs the whole source.
+STRUCTURE_CHUNK_RETRY_DELAYS_SECONDS = (1.0, 4.0)
 STRUCTURE_PROVIDER_PREFERENCES = {
     "only": [INSPECTION_PROVIDER],
     "allow_fallbacks": False,
@@ -148,7 +156,11 @@ class OpenRouterStructureModel:
         if response.status_code in {401, 403}:
             raise HTTPException(503, "Paper's structure model is not configured correctly.")
         if response.is_error:
-            raise HTTPException(502, "Paper's structure model could not prepare that source.")
+            # Carry the provider status: without it a failed book is undiagnosable.
+            raise HTTPException(
+                502,
+                f"Paper's structure model could not prepare that source (provider HTTP {response.status_code}).",
+            )
         try:
             content = response.json()["choices"][0]["message"]["content"]
         except (IndexError, KeyError, TypeError, ValueError) as exc:
@@ -181,10 +193,22 @@ async def structure_document(
     client = client or OpenRouterStructureModel()
     selected_model = model or os.getenv("PAPER_STRUCTURE_MODEL", os.getenv("PAPER_INSPECT_MODEL", DEFAULT_INSPECTION_MODEL))
     chunks = _structure_chunks(extracted)
-    plans: list[StructurePlan] = []
-    for chunk in chunks:
-        raw = await client.create_plan(model=selected_model, input_text=structure_input(chunk))
-        plans.append(validate_structure_plan(raw, chunk, allow_empty=len(chunks) > 1))
+    allow_empty = len(chunks) > 1
+    limit = asyncio.Semaphore(STRUCTURE_CHUNK_CONCURRENCY)
+
+    async def plan_chunk(chunk: ExtractedSource) -> StructurePlan:
+        async with limit:
+            return await _plan_one_chunk(client, selected_model, chunk, allow_empty=allow_empty)
+
+    tasks = [asyncio.create_task(plan_chunk(chunk)) for chunk in chunks]
+    try:
+        # gather keeps chunk order, which is source order.
+        plans = await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        raise
+
     ranges = tuple(block_range for plan in plans for block_range in plan.ranges)
     if not ranges:
         raise HTTPException(422, "Paper could not find a readable document body in that source.")
@@ -210,8 +234,7 @@ def validate_structure_plan(
     if not minimum_ranges <= len(ranges) <= MAX_STRUCTURE_RANGES:
         raise HTTPException(502, "Paper's structure model returned an invalid plan.")
     index_by_id = {block.id: index for index, block in enumerate(extracted.blocks)}
-    parsed_ranges: list[BlockRange] = []
-    last_end = -1
+    spans: list[tuple[int, int]] = []
     for item in ranges:
         if not isinstance(item, dict) or set(item) != {"start_id", "end_id"}:
             raise HTTPException(502, "Paper's structure model returned an invalid plan.")
@@ -223,11 +246,63 @@ def validate_structure_plan(
             raise HTTPException(502, "Paper's structure model referenced a block that was not supplied.")
         start_index = index_by_id[start_id]
         end_index = index_by_id[end_id]
-        if start_index > end_index or start_index <= last_end:
-            raise HTTPException(502, "Paper's structure model returned overlapping or out-of-order ranges.")
-        parsed_ranges.append(BlockRange(start_id=start_id, end_id=end_id))
-        last_end = end_index
-    return StructurePlan(ranges=tuple(parsed_ranges))
+        # A backwards range is not a span of the source, so there is nothing to
+        # ground it against.
+        if start_index > end_index:
+            raise HTTPException(502, "Paper's structure model returned a backwards range.")
+        spans.append((start_index, end_index))
+
+    blocks = extracted.blocks
+    return StructurePlan(
+        ranges=tuple(
+            BlockRange(start_id=blocks[start].id, end_id=blocks[end].id)
+            for start, end in _ordered_spans(spans)
+        )
+    )
+
+
+async def _plan_one_chunk(
+    client: StructureModel,
+    model: str,
+    chunk: ExtractedSource,
+    *,
+    allow_empty: bool,
+) -> StructurePlan:
+    """Plan one chunk, retrying a provider failure before losing the whole source.
+
+    Planning is read-only, so repeating it is safe. Only a provider-side failure
+    is retried; a source Paper cannot read is not going to become readable.
+    """
+
+    for delay in (*STRUCTURE_CHUNK_RETRY_DELAYS_SECONDS, None):
+        try:
+            raw = await client.create_plan(model=model, input_text=structure_input(chunk))
+            return validate_structure_plan(raw, chunk, allow_empty=allow_empty)
+        except HTTPException as exc:
+            if delay is None or exc.status_code != 502:
+                raise
+        await asyncio.sleep(delay)
+    raise AssertionError("The chunk retry loop must return or raise.")
+
+
+def _ordered_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Put selected spans in source order, merging any that meet or overlap.
+
+    Every span still has to be a real, forward run of supplied blocks, so the
+    reader stays grounded in the source. But a model that lists those spans out
+    of order, repeats one, or splits a run into adjacent pieces has still
+    pointed at the same text. Rejecting the whole source for it threw away long
+    documents over a formatting slip, and on a book split into many chunks the
+    chance of one such slip approaches certainty.
+    """
+
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def _structure_chunks(extracted: ExtractedSource) -> tuple[ExtractedSource, ...]:

@@ -7,12 +7,14 @@ HTML document that later stages can inspect?
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import re
 import socket
+import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Iterable, Literal
+from typing import Callable, Iterable, Literal
 from urllib.parse import urljoin, urlparse
 
 import httpcore
@@ -27,6 +29,9 @@ MAX_SOURCE_BYTES = 30 * 1024 * 1024
 MAX_REDIRECTS = 4
 USER_AGENT = "Paper/0.1 (+public-internet reader)"
 MIN_PDF_WORDS = 20
+# Downloading a large source is the longest wait in the pipeline. Report it
+# often enough to stay legible, rarely enough not to flood the event stream.
+DOWNLOAD_REPORT_SECONDS = 0.25
 
 SourceType = Literal["pdf", "html"]
 ReadabilityRoute = Literal["auto_accept", "needs_intelligence"]
@@ -219,8 +224,12 @@ def _is_readable_pdf(payload: bytes) -> bool:
     try:
         if document.page_count == 0:
             return False
-        text = " ".join(page.get_text("text") for page in document)
-        return len(re.findall(r"\b\w+[’'\-]?\w*\b", text)) >= MIN_PDF_WORDS
+        words = 0
+        for page in document:
+            words += len(re.findall(r"\b\w+[’'\-]?\w*\b", page.get_text("text")))
+            if words >= MIN_PDF_WORDS:
+                return True
+        return False
     finally:
         document.close()
 
@@ -260,16 +269,41 @@ def _identify_source(payload: bytes, content_type: str | None) -> SourceType:
     raise HTTPException(415, "That URL did not return a supported readable PDF or HTML page.")
 
 
+def _classify_source(
+    payload: bytes,
+    content_type: str | None,
+) -> tuple[SourceType, HTMLSourceAnalysis | None, ReadabilityRoute]:
+    """Identify and route one fetched payload. Runs off the event loop."""
+
+    source_type = _identify_source(payload, content_type)
+    html_analysis = analyze_html_source(payload) if source_type == "html" else None
+    readability_route: ReadabilityRoute = (
+        "auto_accept"
+        if html_analysis is not None and html_analysis.has_obvious_reading_surface
+        else "needs_intelligence"
+    )
+    return source_type, html_analysis, readability_route
+
+
 async def inspect_source(
     url: str,
     *,
     transport: httpx.AsyncBaseTransport | None = None,
+    on_download: Callable[[int, int | None], None] | None = None,
+    on_fetched: Callable[[], None] | None = None,
 ) -> InspectedSource:
     """Fetch a public source, follow safe redirects, and identify its format.
 
     The returned payload is held only in process memory.  Callers decide how
     to extract it; this function neither stores the source nor creates reader
     text from it.  ``transport`` exists solely for hermetic tests.
+
+    ``on_download`` fires with ``(received, total)`` once the final response
+    headers arrive and then while the body streams; ``total`` is ``None`` when
+    the host sends no content length. ``on_fetched`` fires once the payload is
+    complete and before it is identified. Together they let a caller report the
+    three genuinely different waits here — locating the source, transferring it,
+    and reading it — instead of billing all of them to one stage.
     """
 
     current = clean_public_url(url)
@@ -288,7 +322,7 @@ async def inspect_source(
         trust_env=False,
     ) as client:
         for _ in range(MAX_REDIRECTS + 1):
-            public_addresses = assert_public_host(current)
+            public_addresses = await asyncio.to_thread(assert_public_host, current)
             if transport is None:
                 pinned_backend.pin(current, public_addresses)
             try:
@@ -304,25 +338,33 @@ async def inspect_source(
                         raise HTTPException(502, f"The source host returned HTTP {response.status_code}.")
 
                     content_length = response.headers.get("content-length")
-                    if content_length and content_length.isdigit() and int(content_length) > MAX_SOURCE_BYTES:
+                    total = int(content_length) if content_length and content_length.isdigit() else None
+                    if total is not None and total > MAX_SOURCE_BYTES:
                         raise HTTPException(413, "That source is larger than the 30 MB MVP limit.")
 
+                    # The source is located once its final response headers land.
+                    if on_download is not None:
+                        on_download(0, total)
+
                     data = bytearray()
+                    reported_at = time.monotonic()
                     async for chunk in response.aiter_bytes():
                         data.extend(chunk)
                         if len(data) > MAX_SOURCE_BYTES:
                             raise HTTPException(413, "That source is larger than the 30 MB MVP limit.")
+                        now = time.monotonic()
+                        if on_download is not None and now - reported_at >= DOWNLOAD_REPORT_SECONDS:
+                            reported_at = now
+                            on_download(len(data), total)
             except httpx.HTTPError as exc:
                 raise HTTPException(502, f"Could not fetch that source: {exc}") from exc
 
             payload = bytes(data)
             content_type = _header_content_type(response)
-            source_type = _identify_source(payload, content_type)
-            html_analysis = analyze_html_source(payload) if source_type == "html" else None
-            readability_route: ReadabilityRoute = (
-                "auto_accept"
-                if html_analysis is not None and html_analysis.has_obvious_reading_surface
-                else "needs_intelligence"
+            if on_fetched is not None:
+                on_fetched()
+            source_type, html_analysis, readability_route = await asyncio.to_thread(
+                _classify_source, payload, content_type
             )
             return InspectedSource(
                 url=current,

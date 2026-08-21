@@ -32,7 +32,7 @@
     </header>
 
     <main class="read-main">
-      <section class="read-hero" aria-labelledby="read-title">
+      <section id="read-hero" class="read-hero" aria-labelledby="read-title">
         <div class="read-copy">
           <p class="eyebrow"><span class="eyebrow-dot"></span> Open a document</p>
           <h1 id="read-title">Give the words a better place to be <em>read.</em></h1>
@@ -57,7 +57,7 @@
         </div>
       </section>
 
-      <section class="read-support" aria-labelledby="support-title">
+      <section id="read-support" class="read-support" aria-labelledby="support-title">
         <div>
           <div class="section-kicker">Start with the first source</div>
           <h2 id="support-title">A public URL is all Paper needs.</h2>
@@ -69,6 +69,45 @@
             <div class="read-fact"><strong>Format</strong><span>PDF and readable HTML</span></div>
             <div class="read-fact"><strong>Output</strong><span>Reflowed reading view</span></div>
             <div class="read-fact"><strong>Progress</strong><span>Saved in your browser</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="preparation" class="preparation hidden" aria-labelledby="preparation-title">
+        <div class="preparation-topline">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> Paper is preparing your source</p>
+          <button id="change-source" class="prepare-change" type="button">Use another link <span aria-hidden="true">&larr;</span></button>
+        </div>
+
+        <div class="preparation-grid">
+          <aside class="source-passport" aria-label="Source details">
+            <div class="passport-topline"><span id="passport-type">PUBLIC DOCUMENT</span><span>01</span></div>
+            <div class="passport-rule"></div>
+            <p id="passport-host" class="passport-host">Checking the source</p>
+            <h2 id="passport-title">A public document</h2>
+            <p id="passport-author" class="passport-author hidden"></p>
+            <dl id="passport-facts" class="passport-facts"></dl>
+            <div class="passport-skeleton" aria-hidden="true">
+              <div class="skeleton-facts"><span></span><span></span><span></span></div>
+              <div class="skeleton-lines"><span></span><span></span><span></span></div>
+            </div>
+            <blockquote id="passport-opening" class="passport-opening hidden"></blockquote>
+            <p class="passport-provenance">Facts shown here come from the original source.</p>
+          </aside>
+
+          <div class="preparation-copy">
+            <p class="section-kicker">The reading room</p>
+            <h1 id="preparation-title">Preparing your <em>reading copy.</em></h1>
+            <p id="preparation-state" class="preparation-state" aria-live="polite">Finding the source</p>
+            <ol class="preparation-steps" aria-label="Document preparation progress">
+              <li data-stage="fetching"><span class="step-mark" aria-hidden="true"></span><span>Finding the source</span></li>
+              <li data-stage="downloading"><span class="step-mark" aria-hidden="true"></span><span>Downloading the source</span></li>
+              <li data-stage="checking"><span class="step-mark" aria-hidden="true"></span><span>Checking it is readable</span></li>
+              <li data-stage="extracting"><span class="step-mark" aria-hidden="true"></span><span>Extracting the text</span></li>
+              <li data-stage="structuring"><span class="step-mark" aria-hidden="true"></span><span>Finding the reading flow</span></li>
+              <li data-stage="validating"><span class="step-mark" aria-hidden="true"></span><span>Checking the final copy</span></li>
+            </ol>
+            <p class="preparation-note">Paper only opens a source once it has a complete, readable path through it.</p>
           </div>
         </div>
       </section>

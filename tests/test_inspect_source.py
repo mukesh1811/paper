@@ -267,3 +267,54 @@ def test_pinned_network_backend_uses_the_already_inspected_ip_address():
     asyncio.run(backend.connect_tcp("example.org", 443))
 
     assert recording.calls == [("93.184.216.34", 443)]
+
+
+def test_download_is_reported_with_the_declared_source_size():
+    """The transfer is the one wait Paper can measure, so it must report bytes."""
+
+    body = readable_html()
+    reports: list[tuple[int, int | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return response(request, body=body, content_type="text/html")
+
+    transport = httpx.MockTransport(handler)
+    asyncio.run(
+        inspect_source(
+            "https://example.org/essay",
+            transport=transport,
+            on_download=lambda received, total: reports.append((received, total)),
+        )
+    )
+
+    assert reports, "the download must report before any bytes are read"
+    assert reports[0] == (0, len(body)), "the first report announces the declared size"
+    assert all(total == len(body) for _received, total in reports)
+
+
+def test_download_reports_an_unknown_size_without_a_content_length():
+    body = readable_html()
+
+    async def chunks():
+        yield body
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # A chunked response carries no content length, so the size is unknown.
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html"},
+            content=chunks(),
+            request=request,
+        )
+
+    reports: list[tuple[int, int | None]] = []
+    transport = httpx.MockTransport(handler)
+    asyncio.run(
+        inspect_source(
+            "https://example.org/essay",
+            transport=transport,
+            on_download=lambda received, total: reports.append((received, total)),
+        )
+    )
+
+    assert reports[0] == (0, None)

@@ -38,7 +38,7 @@ def document():
 
 
 def test_background_job_keeps_the_document_in_memory_until_polled(monkeypatch):
-    async def fake_complete(_prepared):
+    async def fake_complete(_prepared, **_kwargs):
         return document()
 
     monkeypatch.setattr("api.read_jobs.complete_prepared_read", fake_complete)
@@ -58,7 +58,7 @@ def test_background_job_keeps_the_document_in_memory_until_polled(monkeypatch):
 
 
 def test_background_job_exposes_a_safe_failure(monkeypatch):
-    async def fake_complete(_prepared):
+    async def fake_complete(_prepared, **_kwargs):
         raise RuntimeError("provider detail must not leak")
 
     monkeypatch.setattr("api.read_jobs.complete_prepared_read", fake_complete)
@@ -74,3 +74,46 @@ def test_background_job_exposes_a_safe_failure(monkeypatch):
     assert job.status == "failed"
     assert job.error_status == 502
     assert job.error_detail == "Paper could not prepare that document."
+
+
+def test_url_job_reports_real_stages_and_source_passport(monkeypatch):
+    progress: list[str] = []
+
+    async def fake_prepare(url, *, progress=None):
+        assert url == "https://example.org/essay"
+        progress("checking", None, None)
+        progress("extracting", None, None)
+        return prepared_read()
+
+    async def fake_complete(prepared, *, progress=None):
+        progress("structuring", prepared, None)
+        progress("validating", prepared, None)
+        return document()
+
+    monkeypatch.setattr("api.read_jobs.prepare_read", fake_prepare)
+    monkeypatch.setattr("api.read_jobs.complete_prepared_read", fake_complete)
+    store = MemoryReadJobStore()
+
+    async def run():
+        job = await store.submit_url("https://example.org/essay")
+        progress.append(job.stage)
+        await job.task
+        return store.get(job.id)
+
+    job = asyncio.run(run())
+
+    assert progress == ["fetching"]
+    assert job.status == "complete"
+    assert job.stage == "complete"
+    assert job.passport == {
+        "source_host": "example.org",
+        "source_type": "html",
+        "title": "Untitled page",
+        "author": None,
+        "language": None,
+        "page_count": None,
+        "word_count": 26,
+        "reading_minutes": 1,
+        "section_count": 0,
+        "opening_text": "A complete public source has enough exact words to prepare a reader document in a test and verify the in memory background job contract safely today.",
+    }
