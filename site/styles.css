@@ -274,6 +274,10 @@ button { color: inherit; }
 .prefs { position: fixed; z-index: 40; top: 58px; right: max(14px, calc((100vw - 1040px)/2)); width: 300px; padding: 18px; border: 1px solid var(--reader-line); border-radius: 14px; background: var(--reader-panel); box-shadow: 0 18px 55px rgba(0,0,0,.12); backdrop-filter: blur(18px); }
 .pref-row { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--reader-muted); font-size: 12px; }
 .pref-row input[type="range"] { width: 160px; accent-color: var(--reader-ink); }
+.pref-actions { display: flex; gap: 14px; }
+.pref-actions button { padding: 0 0 3px; border: 0; border-bottom: 1px solid var(--reader-line); background: transparent; color: var(--reader-muted); cursor: pointer; font-size: 12px; transition: color .2s ease, border-color .2s ease; }
+.pref-actions button:hover:enabled { color: var(--reader-ink); border-color: var(--reader-ink); }
+.pref-actions button:disabled { cursor: default; opacity: .6; }
 .theme-buttons { display: flex; gap: 8px; }
 .theme-buttons button { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); cursor: pointer; }
 .theme-buttons button[data-theme="paper"] { background: #f7f4ed; }.theme-buttons button[data-theme="sepia"] { background: #efe4ca; }.theme-buttons button[data-theme="night"] { background: #171717; }

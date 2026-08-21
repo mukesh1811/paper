@@ -27,6 +27,8 @@ const passportFacts = document.querySelector('#passport-facts');
 const passportOpening = document.querySelector('#passport-opening');
 const preparationState = document.querySelector('#preparation-state');
 const preparationSteps = [...document.querySelectorAll('.preparation-steps [data-stage]')];
+const reloadSource = document.querySelector('#reload-source');
+const clearCache = document.querySelector('#clear-cache');
 
 const defaults = { theme: 'paper', fontSize: 20, lineWidth: 700, lineHeight: 1.7 };
 const storedSettings = localStorage.getItem('paper:prefs') || '{}';
@@ -82,6 +84,182 @@ function apiBaseUrl() {
 
 function delay(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+// Reading copies saved on this device
+// ------------------------------------------------------------------
+// Preparing a source runs a full download, extraction, and several model calls.
+// A document already read here opens from storage instead of repeating any of
+// it. IndexedDB rather than localStorage: one 700-page book serialises to about
+// 2.9 MB, which on its own exceeds the whole localStorage quota. Document text
+// stays on the device and is never sent anywhere.
+const CACHE_DATABASE = 'paper';
+const CACHE_DATABASE_VERSION = 1;
+const CACHE_DOCUMENTS = 'documents';
+const CACHE_ENTRIES = 'entries';
+const CACHE_DOCUMENT_SCHEMA = 'paper.document.v1';
+const CACHE_MAX_DOCUMENTS = 12;
+const CACHE_MAX_BYTES = 64 * 1024 * 1024;
+const CACHE_MAX_AGE_MILLISECONDS = 30 * 24 * 60 * 60 * 1000;
+// Per block, an id, a type, and a locator cost roughly this much beside the
+// text. Eviction only needs the order of magnitude, not an exact figure.
+const CACHE_BLOCK_OVERHEAD_BYTES = 200;
+
+let cacheDatabase;
+
+function requestResult(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionDone(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+function openCacheDatabase() {
+  // Storage can be unavailable: private windows, disabled site data, old
+  // browsers. Every caller treats a null database as a plain miss.
+  if (cacheDatabase) return cacheDatabase;
+  cacheDatabase = new Promise((resolve) => {
+    let request;
+    try {
+      request = indexedDB.open(CACHE_DATABASE, CACHE_DATABASE_VERSION);
+    } catch {
+      resolve(null);
+      return;
+    }
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(CACHE_DOCUMENTS)) {
+        database.createObjectStore(CACHE_DOCUMENTS, { keyPath: 'url' });
+      }
+      if (!database.objectStoreNames.contains(CACHE_ENTRIES)) {
+        database.createObjectStore(CACHE_ENTRIES, { keyPath: 'url' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+  return cacheDatabase;
+}
+
+function documentBytes(documentData) {
+  let total = 0;
+  for (const block of documentData.blocks) total += block.text.length + CACHE_BLOCK_OVERHEAD_BYTES;
+  return total;
+}
+
+async function readCachedDocument(url) {
+  try {
+    const database = await openCacheDatabase();
+    if (!database) return null;
+
+    // The entry is small, so an expired or outdated copy is discarded without
+    // ever deserialising the document beside it.
+    const entry = await requestResult(
+      database.transaction(CACHE_ENTRIES, 'readonly').objectStore(CACHE_ENTRIES).get(url)
+    );
+    if (!entry) return null;
+    if (entry.schema !== CACHE_DOCUMENT_SCHEMA || Date.now() - entry.savedAt > CACHE_MAX_AGE_MILLISECONDS) {
+      await forgetCachedDocuments([url]);
+      return null;
+    }
+
+    const record = await requestResult(
+      database.transaction(CACHE_DOCUMENTS, 'readonly').objectStore(CACHE_DOCUMENTS).get(url)
+    );
+    if (!record?.document) {
+      await forgetCachedDocuments([url]);
+      return null;
+    }
+
+    const touched = database.transaction(CACHE_ENTRIES, 'readwrite');
+    touched.objectStore(CACHE_ENTRIES).put({ ...entry, readAt: Date.now() });
+    transactionDone(touched).catch(() => {});
+    return record.document;
+  } catch {
+    return null;
+  }
+}
+
+async function saveCachedDocument(url, documentData) {
+  try {
+    const database = await openCacheDatabase();
+    if (!database) return;
+    const now = Date.now();
+    const transaction = database.transaction([CACHE_DOCUMENTS, CACHE_ENTRIES], 'readwrite');
+    transaction.objectStore(CACHE_DOCUMENTS).put({ url, document: documentData });
+    transaction.objectStore(CACHE_ENTRIES).put({
+      url,
+      schema: documentData.schema,
+      bytes: documentBytes(documentData),
+      savedAt: now,
+      readAt: now,
+    });
+    await transactionDone(transaction);
+    await evictCachedDocuments();
+  } catch {
+    // A source that will not fit is simply not cached; the reader is unaffected.
+  }
+}
+
+async function forgetCachedDocuments(urls) {
+  if (!urls.length) return;
+  const database = await openCacheDatabase();
+  if (!database) return;
+  const transaction = database.transaction([CACHE_DOCUMENTS, CACHE_ENTRIES], 'readwrite');
+  for (const url of urls) {
+    transaction.objectStore(CACHE_DOCUMENTS).delete(url);
+    transaction.objectStore(CACHE_ENTRIES).delete(url);
+  }
+  await transactionDone(transaction);
+}
+
+async function evictCachedDocuments() {
+  const database = await openCacheDatabase();
+  if (!database) return;
+  const entries = await requestResult(
+    database.transaction(CACHE_ENTRIES, 'readonly').objectStore(CACHE_ENTRIES).getAll()
+  );
+
+  const now = Date.now();
+  const drop = [];
+  const live = [];
+  for (const entry of entries) {
+    if (now - entry.savedAt > CACHE_MAX_AGE_MILLISECONDS) drop.push(entry.url);
+    else live.push(entry);
+  }
+
+  // Keep what was read most recently, up to both caps.
+  live.sort((first, second) => second.readAt - first.readAt);
+  let kept = 0;
+  let bytes = 0;
+  for (const entry of live) {
+    bytes += entry.bytes;
+    if (kept < CACHE_MAX_DOCUMENTS && bytes <= CACHE_MAX_BYTES) kept += 1;
+    else drop.push(entry.url);
+  }
+  await forgetCachedDocuments(drop);
+}
+
+async function clearCachedDocuments() {
+  try {
+    const database = await openCacheDatabase();
+    if (!database) return;
+    const transaction = database.transaction([CACHE_DOCUMENTS, CACHE_ENTRIES], 'readwrite');
+    transaction.objectStore(CACHE_DOCUMENTS).clear();
+    transaction.objectStore(CACHE_ENTRIES).clear();
+    await transactionDone(transaction);
+  } catch {
+    // Nothing to clear is the same outcome as a cleared cache.
+  }
 }
 
 function readerEntryUrl(url) {
@@ -251,21 +429,33 @@ function updateProgress() {
   saveTimer = setTimeout(() => localStorage.setItem(storageKey(), ratio.toString()), 120);
 }
 
+function openReader(documentData, pushState) {
+  renderBook(documentData);
+  home.classList.add('hidden');
+  reader.classList.remove('hidden');
+  if (pushState) history.pushState({ url: activeUrl }, '', readerEntryUrl(activeUrl));
+  restoreProgress();
+}
+
 async function openSource(url, pushState = true) {
   activeUrl = url.trim();
   if (!activeUrl) return;
   status.className = 'status';
   status.textContent = '';
+
+  const saved = await readCachedDocument(activeUrl);
+  if (saved) {
+    openReader(saved, pushState);
+    return;
+  }
+
   showPreparation();
   try {
     const documentData = await streamReadPreparation(activeUrl);
     updatePreparationStage('complete');
     await delay(COMPLETION_PAUSE_MILLISECONDS);
-    renderBook(documentData);
-    home.classList.add('hidden');
-    reader.classList.remove('hidden');
-    if (pushState) history.pushState({ url: activeUrl }, '', readerEntryUrl(activeUrl));
-    restoreProgress();
+    openReader(documentData, pushState);
+    saveCachedDocument(activeUrl, documentData);
   } catch (err) {
     showLaunch();
     home.classList.remove('hidden');
@@ -304,6 +494,31 @@ back.addEventListener('click', () => {
   if (isReaderEntry) showLaunch();
   history.pushState({}, '', launchPath);
   window.scrollTo(0, 0);
+});
+
+reloadSource?.addEventListener('click', async () => {
+  const url = activeUrl;
+  if (!url) return;
+  prefs.classList.add('hidden');
+  await forgetCachedDocuments([url]).catch(() => {});
+  if (!isReaderEntry) {
+    window.location.assign(readerEntryUrl(url));
+    return;
+  }
+  reader.classList.add('hidden');
+  home.classList.remove('hidden');
+  openSource(url, false);
+});
+
+clearCache?.addEventListener('click', async () => {
+  clearCache.disabled = true;
+  const label = clearCache.textContent;
+  await clearCachedDocuments();
+  clearCache.textContent = 'Cleared';
+  window.setTimeout(() => {
+    clearCache.textContent = label;
+    clearCache.disabled = false;
+  }, 1600);
 });
 
 prefsButton.addEventListener('click', (event) => {
