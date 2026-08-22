@@ -30,6 +30,7 @@ jobs:
           cp -R site/. public/
           mkdir public/static
           cp site/styles.css site/app.js site/favicon.svg public/static/
+          rm public/telemetry.html public/telemetry.js
           touch public/.nojekyll
           find public -type f \( -name '*.html' -o -name '*.css' \) -print0 | xargs -0 sed -i 's#href="/#href="/paper/#g; s#src="/#src="/paper/#g; s#url(/#url(/paper/#g'
           find public -type f -name '*.html' -print0 | xargs -0 sed -i "s#content=\"__PAPER_API_URL__\"#content=\"${PAPER_API_URL}\"#g"

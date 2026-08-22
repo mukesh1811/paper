@@ -241,3 +241,64 @@ def test_chunks_are_planned_together_and_kept_in_source_order(monkeypatch):
     for block_range in plan.ranges:
         selected.extend(ids[ids.index(block_range.start_id) : ids.index(block_range.end_id) + 1])
     assert selected == ids, "concurrent planning must still yield source order"
+
+
+def test_structure_stats_count_the_chunks_and_the_retries_they_needed(monkeypatch):
+    """A chunk that succeeds on its second attempt leaves no other trace."""
+
+    _, extracted = extracted_source()
+    monkeypatch.setattr("api.structure_document.STRUCTURE_CHUNK_RETRY_DELAYS_SECONDS", (0, 0))
+    model = FlakyStructureModel({"ranges": [{"start_id": "b2", "end_id": "b4"}]}, failures=2)
+    seen = []
+
+    asyncio.run(structure_document(extracted, client=model, on_stats=seen.append))
+
+    assert len(seen) == 1
+    assert seen[0].chunk_count == 1
+    assert seen[0].retry_count == 2
+    assert seen[0].prompt_characters == len(structure_input(extracted))
+    # A fake provider reports no usage, so the estimate stands in for it.
+    assert seen[0].prompt_tokens is None
+    assert seen[0].estimated_prompt_tokens > 0
+
+
+def test_structure_stats_are_reported_even_when_the_source_fails(monkeypatch):
+    """The runs worth investigating are the ones that did not finish."""
+
+    _, extracted = extracted_source()
+    monkeypatch.setattr("api.structure_document.STRUCTURE_CHUNK_RETRY_DELAYS_SECONDS", (0, 0))
+    model = FlakyStructureModel({"ranges": []}, failures=1, status=503)
+    seen = []
+
+    with pytest.raises(HTTPException):
+        asyncio.run(structure_document(extracted, client=model, on_stats=seen.append))
+
+    assert len(seen) == 1
+    assert seen[0].chunk_count == 1
+
+
+def test_structure_stats_total_provider_usage_when_it_is_reported(monkeypatch):
+    """Real token counts beat the character estimate whenever a provider sends them."""
+
+    _, extracted = extracted_source()
+    monkeypatch.setattr("api.structure_document.STRUCTURE_CHUNK_CHARACTERS", 45)
+
+    class UsageReportingModel:
+        prompt_tokens = 0
+        completion_tokens = 0
+
+        async def create_plan(self, *, model, input_text):
+            self.prompt_tokens += 120
+            self.completion_tokens += 8
+            return json.dumps({"ranges": []})
+
+    model = UsageReportingModel()
+    seen = []
+
+    with pytest.raises(HTTPException, match="readable document body"):
+        asyncio.run(structure_document(extracted, client=model, on_stats=seen.append))
+
+    assert seen[0].chunk_count > 1
+    assert seen[0].prompt_tokens == 120 * seen[0].chunk_count
+    assert seen[0].estimated_prompt_tokens == seen[0].prompt_tokens
+    assert seen[0].completion_tokens == 8 * seen[0].chunk_count

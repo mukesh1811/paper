@@ -13,7 +13,7 @@ from api.document import PaperDocument
 from api.extract_source import ExtractedSource, extract_source
 from api.inspect_readability import inspect_readability
 from api.inspect_source import inspect_source
-from api.structure_document import materialize_document, structure_document
+from api.structure_document import StructureStats, materialize_document, structure_document
 
 
 @dataclass(frozen=True)
@@ -68,11 +68,12 @@ async def complete_prepared_read(
     prepared: PreparedRead,
     *,
     progress: ProgressCallback | None = None,
+    on_structure_stats: Callable[[StructureStats], None] | None = None,
 ) -> PaperDocument:
     """Arrange references and return a document whose blocks are validated."""
 
     _report(progress, "structuring", prepared)
-    plan = await structure_document(prepared.extracted)
+    plan = await structure_document(prepared.extracted, on_stats=on_structure_stats)
     _report(progress, "validating", prepared)
     return materialize_document(prepared.source, prepared.extracted, plan)
 

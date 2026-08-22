@@ -47,6 +47,13 @@ const stageLabels = {
 const COMPLETION_PAUSE_MILLISECONDS = 360;
 let activeUrl = '';
 let saveTimer = null;
+// Marks worth reporting on the way through a document. Kept few so a long
+// scroll sends a handful of events, not one per screen.
+const PROGRESS_MILESTONES = [25, 50, 75, 100];
+let activeReadId = null;
+let furthestPercent = 0;
+let reportedPercent = 0;
+let finalReported = false;
 const launchPath = window.location.pathname || '/';
 const isReaderEntry = preparation !== null;
 
@@ -94,9 +101,16 @@ function delay(milliseconds) {
 // 2.9 MB, which on its own exceeds the whole localStorage quota. Document text
 // stays on the device and is never sent anywhere.
 const CACHE_DATABASE = 'paper';
-const CACHE_DATABASE_VERSION = 1;
+const CACHE_DATABASE_VERSION = 2;
 const CACHE_DOCUMENTS = 'documents';
 const CACHE_ENTRIES = 'entries';
+// This browser's own identifier, kept beside its reading copies. It says only
+// that two reads came from the same storage, which is the closest thing to a
+// returning reader that Paper can know without accounts. Clearing site data
+// takes the reading copies and this together, and that is the honest outcome:
+// a browser with no library is a new one.
+const CACHE_DEVICE = 'device';
+const CACHE_DEVICE_KEY = 'this-browser';
 const CACHE_DOCUMENT_SCHEMA = 'paper.document.v1';
 const CACHE_MAX_DOCUMENTS = 12;
 const CACHE_MAX_BYTES = 64 * 1024 * 1024;
@@ -142,12 +156,70 @@ function openCacheDatabase() {
       if (!database.objectStoreNames.contains(CACHE_ENTRIES)) {
         database.createObjectStore(CACHE_ENTRIES, { keyPath: 'url' });
       }
+      if (!database.objectStoreNames.contains(CACHE_DEVICE)) {
+        database.createObjectStore(CACHE_DEVICE, { keyPath: 'key' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => resolve(null);
     request.onblocked = () => resolve(null);
   });
   return cacheDatabase;
+}
+
+function newIdentifier() {
+  if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+let deviceIdentityPromise;
+
+function deviceIdentity() {
+  // Resolved once and reused: every event carries it, and none of them should
+  // wait on storage to find out who is asking.
+  if (deviceIdentityPromise) return deviceIdentityPromise;
+  deviceIdentityPromise = (async () => {
+    try {
+      const database = await openCacheDatabase();
+      if (!database) return null;
+      const existing = await requestResult(
+        database.transaction(CACHE_DEVICE, 'readonly').objectStore(CACHE_DEVICE).get(CACHE_DEVICE_KEY)
+      );
+      if (existing?.id) return existing;
+      const created = { key: CACHE_DEVICE_KEY, id: newIdentifier(), createdAt: Date.now() };
+      const transaction = database.transaction(CACHE_DEVICE, 'readwrite');
+      transaction.objectStore(CACHE_DEVICE).put(created);
+      await transactionDone(transaction);
+      return created;
+    } catch {
+      // Storage can be unavailable. Telemetry then simply carries no device.
+      return null;
+    }
+  })();
+  return deviceIdentityPromise;
+}
+
+async function keepStorage() {
+  // Asked only once a reading copy exists, so the browser is deciding about
+  // something the reader would actually miss. Without it a saved book can be
+  // evicted under disk pressure and has to be prepared all over again.
+  try { await navigator.storage?.persist?.(); } catch { /* not offered here */ }
+}
+
+async function postTelemetry(path, body) {
+  const identity = await deviceIdentity();
+  // Best effort throughout: reading must never wait on, or fail because of,
+  // a telemetry request. `keepalive` lets it survive the page going away.
+  void fetch(`${apiBaseUrl()}/api/telemetry/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, device_id: identity?.id || null }),
+    keepalive: true,
+  }).catch(() => {});
 }
 
 function documentBytes(documentData) {
@@ -183,13 +255,13 @@ async function readCachedDocument(url) {
     const touched = database.transaction(CACHE_ENTRIES, 'readwrite');
     touched.objectStore(CACHE_ENTRIES).put({ ...entry, readAt: Date.now() });
     transactionDone(touched).catch(() => {});
-    return record.document;
+    return { document: record.document, readId: entry.readId || null };
   } catch {
     return null;
   }
 }
 
-async function saveCachedDocument(url, documentData) {
+async function saveCachedDocument(url, documentData, readId) {
   try {
     const database = await openCacheDatabase();
     if (!database) return;
@@ -202,9 +274,11 @@ async function saveCachedDocument(url, documentData) {
       bytes: documentBytes(documentData),
       savedAt: now,
       readAt: now,
+      readId,
     });
     await transactionDone(transaction);
     await evictCachedDocuments();
+    await keepStorage();
   } catch {
     // A source that will not fit is simply not cached; the reader is unaffected.
   }
@@ -253,6 +327,8 @@ async function clearCachedDocuments() {
   try {
     const database = await openCacheDatabase();
     if (!database) return;
+    // Named stores only: clearing saved copies is not the same as asking to be
+    // treated as a different browser, so the device record is left alone.
     const transaction = database.transaction([CACHE_DOCUMENTS, CACHE_ENTRIES], 'readwrite');
     transaction.objectStore(CACHE_DOCUMENTS).clear();
     transaction.objectStore(CACHE_ENTRIES).clear();
@@ -262,8 +338,12 @@ async function clearCachedDocuments() {
   }
 }
 
-function readerEntryUrl(url) {
-  return `/read?url=${encodeURIComponent(url.trim())}`;
+function readerEntryUrl(url, origin) {
+  const query = new URLSearchParams({ url: url.trim() });
+  // Carried across the hop to /read so the reader page still knows how this
+  // source was chosen.
+  if (origin) query.set('from', origin);
+  return `/read?${query}`;
 }
 
 function hostname(url) {
@@ -358,8 +438,11 @@ function parseSseEvent(message) {
   try { return { event, payload: JSON.parse(data.join('\n')) }; } catch { return { event, payload: {} }; }
 }
 
-async function streamReadPreparation(url) {
-  const response = await fetch(`${apiBaseUrl()}/api/read/events?url=${encodeURIComponent(url)}`, {
+async function streamReadPreparation(url, origin = 'unknown') {
+  const identity = await deviceIdentity();
+  const query = new URLSearchParams({ url, origin });
+  if (identity?.id) query.set('device', identity.id);
+  const response = await fetch(`${apiBaseUrl()}/api/read/events?${query}`, {
     headers: { Accept: 'text/event-stream' },
   });
   if (!response.ok || !response.body) throw new Error('Paper could not start preparing that document.');
@@ -378,7 +461,9 @@ async function streamReadPreparation(url) {
         if (payload.passport) renderPassport(payload.passport);
         updatePreparationStage(payload.stage || 'fetching', payload);
       }
-      if (event === 'complete' && payload.document) return payload.document;
+      if (event === 'complete' && payload.document) {
+        return { document: payload.document, readId: payload.read_id || null };
+      }
       if (event === 'error') throw new Error(payload.detail || 'Could not prepare that document.');
       boundary = buffer.indexOf('\n\n');
     }
@@ -418,6 +503,22 @@ function restoreProgress() {
   });
 }
 
+function reportReadingProgress(percent, final) {
+  if (!activeUrl) return;
+  // A milestone only counts once. The closing figure is always sent, even when
+  // it repeats the last mark, because "this is where they stopped" is the
+  // whole question and it cannot be inferred from a mark they passed.
+  if (final ? finalReported || percent <= 0 : percent <= reportedPercent) return;
+  if (final) finalReported = true;
+  reportedPercent = Math.max(reportedPercent, percent);
+  void postTelemetry('reading-progress', {
+    source_url: activeUrl,
+    read_id: activeReadId,
+    percent,
+    final,
+  });
+}
+
 function updateProgress() {
   if (reader.classList.contains('hidden')) return;
   const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
@@ -425,8 +526,20 @@ function updateProgress() {
   const pct = Math.round(ratio * 100);
   progressFill.style.width = `${pct}%`;
   barProgress.textContent = `${pct}%`;
+  furthestPercent = Math.max(furthestPercent, pct);
+  // Preparing a document is not the point; finishing one is. Reporting a few
+  // marks on the way tells opened apart from actually read.
+  const passed = PROGRESS_MILESTONES.filter((mark) => furthestPercent >= mark).pop();
+  if (passed) reportReadingProgress(passed, false);
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => localStorage.setItem(storageKey(), ratio.toString()), 120);
+}
+
+function reportFinalProgress() {
+  // A reader who stops at 40% never crosses another mark, so the figure they
+  // actually reached is only knowable as the page goes away.
+  if (reader.classList.contains('hidden')) return;
+  reportReadingProgress(furthestPercent, true);
 }
 
 function openReader(documentData, pushState) {
@@ -437,25 +550,61 @@ function openReader(documentData, pushState) {
   restoreProgress();
 }
 
-async function openSource(url, pushState = true) {
+function openedBeforeInThisTab(sourceUrl) {
+  // Back and forward reload the page, so one visit can render a document
+  // several times. That is still worth recording — reopening a saved book is
+  // exactly the signal a cache is for — but it is marked, so counting first
+  // opens does not have to mean counting keystrokes.
+  try {
+    const key = `paper:opened:${sourceUrl}`;
+    const seen = Boolean(sessionStorage.getItem(key));
+    sessionStorage.setItem(key, '1');
+    return seen;
+  } catch {
+    return false;
+  }
+}
+
+function reportReaderOpened(documentData, readId, cacheHit, origin) {
+  const sourceUrl = documentData.source?.url || activeUrl;
+  if (!sourceUrl) return;
+  // A server-side "prepared" event remains useful if this request is lost, so
+  // nothing here is worth making the reader wait for.
+  void postTelemetry('reader-opened', {
+    source_url: sourceUrl,
+    read_id: readId,
+    cache_hit: cacheHit,
+    origin,
+    repeat: openedBeforeInThisTab(sourceUrl),
+  });
+}
+
+async function openSource(url, pushState = true, origin = 'unknown') {
   activeUrl = url.trim();
   if (!activeUrl) return;
   status.className = 'status';
   status.textContent = '';
+  furthestPercent = 0;
+  reportedPercent = 0;
+  finalReported = false;
 
   const saved = await readCachedDocument(activeUrl);
   if (saved) {
-    openReader(saved, pushState);
+    activeReadId = saved.readId;
+    openReader(saved.document, pushState);
+    reportReaderOpened(saved.document, saved.readId, true, origin);
     return;
   }
 
   showPreparation();
   try {
-    const documentData = await streamReadPreparation(activeUrl);
+    const { document: documentData, readId } = await streamReadPreparation(activeUrl, origin);
+    activeReadId = readId;
     updatePreparationStage('complete');
     await delay(COMPLETION_PAUSE_MILLISECONDS);
     openReader(documentData, pushState);
-    saveCachedDocument(activeUrl, documentData);
+    reportReaderOpened(documentData, readId, false, origin);
+    saveCachedDocument(activeUrl, documentData, readId);
   } catch (err) {
     showLaunch();
     home.classList.remove('hidden');
@@ -473,10 +622,27 @@ form.addEventListener('submit', (event) => {
   if (!url) return;
   if (!isReaderEntry) {
     setLoading(true);
-    window.location.assign(readerEntryUrl(url));
+    window.location.assign(readerEntryUrl(url, 'pasted'));
     return;
   }
-  openSource(url);
+  openSource(url, true, 'pasted');
+});
+
+// A one-click sample is a different signal from a document someone brought
+// themselves, and a launch needs to tell them apart.
+document.querySelectorAll('[data-sample-url]').forEach((sample) => {
+  sample.addEventListener('click', (event) => {
+    event.preventDefault();
+    const url = sample.dataset.sampleUrl;
+    if (!url) return;
+    urlInput.value = url;
+    if (!isReaderEntry) {
+      setLoading(true);
+      window.location.assign(readerEntryUrl(url, 'sample'));
+      return;
+    }
+    openSource(url, true, 'sample');
+  });
 });
 
 changeSource?.addEventListener('click', () => {
@@ -502,12 +668,12 @@ reloadSource?.addEventListener('click', async () => {
   prefs.classList.add('hidden');
   await forgetCachedDocuments([url]).catch(() => {});
   if (!isReaderEntry) {
-    window.location.assign(readerEntryUrl(url));
+    window.location.assign(readerEntryUrl(url, 'reload'));
     return;
   }
   reader.classList.add('hidden');
   home.classList.remove('hidden');
-  openSource(url, false);
+  openSource(url, false, 'reload');
 });
 
 clearCache?.addEventListener('click', async () => {
@@ -543,12 +709,22 @@ lineHeight.addEventListener('input', () => { settings.lineHeight = Number(lineHe
 window.addEventListener('scroll', updateProgress, { passive: true });
 window.addEventListener('resize', updateProgress);
 window.addEventListener('popstate', () => location.reload());
+// Both, because a closing desktop tab fires pagehide while a phone switching
+// away usually only fires the visibility change.
+window.addEventListener('pagehide', reportFinalProgress);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') reportFinalProgress();
+});
 
 applySettings();
-const initialUrl = new URLSearchParams(location.search).get('url');
+const initialQuery = new URLSearchParams(location.search);
+const initialUrl = initialQuery.get('url');
+// A source that arrives in the address bar with no hint came from a shared or
+// bookmarked link rather than from anything on this site.
+const initialOrigin = initialQuery.get('from') || 'link';
 if (initialUrl && isReaderEntry) {
   urlInput.value = initialUrl;
-  openSource(initialUrl, false);
+  openSource(initialUrl, false, initialOrigin);
 } else if (initialUrl) {
-  location.replace(readerEntryUrl(initialUrl));
+  location.replace(readerEntryUrl(initialUrl, initialOrigin));
 }

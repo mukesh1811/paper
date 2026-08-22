@@ -22,6 +22,8 @@ if errorlevel 1 (
 )
 
 echo Starting Paper at http://127.0.0.1:8000
+set "PAPER_TELEMETRY_FILE=output\telemetry\events.jsonl"
+echo Local telemetry: http://127.0.0.1:8000/telemetry
 echo Press Ctrl+C to stop the server.
 ".venv\Scripts\python.exe" -m uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
 

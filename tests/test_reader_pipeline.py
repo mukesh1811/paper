@@ -35,7 +35,7 @@ def test_pipeline_returns_a_validated_reader_document(monkeypatch):
     async def fake_readability(_source):
         return ReadabilityDecision(verdict="accept", evidence_ids=("b1",))
 
-    async def fake_structure(_extracted):
+    async def fake_structure(_extracted, **_kwargs):
         return StructurePlan(ranges=(BlockRange(start_id="b1", end_id="b3"),))
 
     monkeypatch.setattr("api.reader_pipeline.inspect_source", fake_inspect_source)

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <title>Local telemetry — Paper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="site-page telemetry-page">
+  <header class="site-nav-wrap page-nav">
+    <nav class="site-nav" aria-label="Local telemetry navigation">
+      <a class="brand" href="/" aria-label="Paper home"><span class="brand-mark">P</span><span>Paper</span></a>
+      <p class="telemetry-local-label">Local telemetry</p>
+      <a class="nav-cta" href="/">Back to Paper <span aria-hidden="true">&rarr;</span></a>
+    </nav>
+  </header>
+
+  <main class="telemetry-main">
+    <section class="telemetry-intro" aria-labelledby="telemetry-title">
+      <div>
+        <p class="section-kicker">This machine only</p>
+        <h1 id="telemetry-title">Reading attempts,<br /><em>as they happen.</em></h1>
+      </div>
+      <p>Every local reader attempt is saved in <code>output/telemetry/events.jsonl</code>. This page refreshes every five seconds.</p>
+    </section>
+
+    <section class="telemetry-summary" aria-label="Telemetry summary">
+      <dl><dt>Attempts</dt><dd id="attempt-count">—</dd></dl>
+      <dl><dt>Ready</dt><dd id="ready-count">—</dd></dl>
+      <dl><dt>Opened</dt><dd id="opened-count">—</dd></dl>
+      <dl><dt>Open rate</dt><dd id="open-rate">—</dd></dl>
+      <dl><dt>Browsers</dt><dd id="reader-count">—</dd></dl>
+      <dl><dt>Finished</dt><dd id="finished-count">—</dd></dl>
+      <button id="refresh-events" type="button">Refresh</button>
+    </section>
+
+    <section class="telemetry-events" aria-labelledby="event-title">
+      <div class="telemetry-events-topline">
+        <div><p class="section-kicker">Latest run first</p><h2 id="event-title">Reading runs</h2></div>
+        <p id="telemetry-status" role="status" aria-live="polite">Loading local events…</p>
+      </div>
+      <div class="telemetry-table-wrap">
+        <table>
+          <thead><tr><th>Started</th><th>Current status</th><th>Source</th><th>Browser</th><th>Details</th></tr></thead>
+          <tbody id="telemetry-events"></tbody>
+        </table>
+      </div>
+      <p id="telemetry-empty" class="telemetry-empty hidden">No local reading attempts yet. Open a public document in Paper and come back here.</p>
+    </section>
+  </main>
+
+  <script src="/static/telemetry.js"></script>
+</body>
+</html>
