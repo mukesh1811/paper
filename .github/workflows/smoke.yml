@@ -1,0 +1,39 @@
+name: Smoke test the deployment
+
+# The unit tests prove the code is right. This proves the deployed thing works,
+# which is a different question: the site is served from a different base path
+# than it is developed at, and the running service carries configuration that
+# no test supplies. Both have broken production while every test passed.
+
+on:
+  # After the frontend ships. The backend builds separately and takes longer,
+  # so this waits for it rather than testing the revision being replaced.
+  workflow_run:
+    workflows: ["Deploy Paper frontend"]
+    types: [completed]
+  # Daily, because the ways this breaks are rarely a code change: an expired
+  # model key, an empty credit balance, a source host that went away.
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      skip_read:
+        description: "Skip the real read (no model call)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the deployment
+        run: |
+          python smoke_test.py \
+            --wait-seconds ${{ github.event_name == 'workflow_run' && 420 || 0 }} \
+            ${{ inputs.skip_read && '--skip-read' || '' }}

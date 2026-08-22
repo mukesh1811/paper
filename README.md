@@ -8,6 +8,20 @@ Try Paper: [mukesh1811.github.io/paper](https://mukesh1811.github.io/paper/)
 
 Backend architecture: [URL2JSON](api/URL2JSON_IMPLEMENTATION_PLAN.md)
 
+## Checking the deployment
+
+The unit tests run against the source and against FastAPI in-process. Two things live outside that reach and have both broken production while every test passed: the site is served from `/paper/` but developed at `/`, and the running service carries configuration no test supplies.
+
+`smoke_test.py` asks the deployed site and API to do a real job, and fails loudly if they cannot. It uses only the standard library, so it needs no environment.
+
+```bash
+python smoke_test.py                    # the deployed site and API
+python smoke_test.py --skip-read        # no model call
+python smoke_test.py --site http://127.0.0.1:8000 --api http://127.0.0.1:8000
+```
+
+It runs in CI after every frontend deploy and once a day, because the ways this breaks are rarely a code change: an expired model key, an empty credit balance, a source host that went away.
+
 ## Telemetry
 
 The Cloud Run API emits structured `paper.telemetry.v1` JSON logs for each attempted, rejected, prepared, browser-opened, and read public source URL. `local_run.bat` also writes them to `output/telemetry/events.jsonl` and exposes a local viewer at [127.0.0.1:8000/telemetry](http://127.0.0.1:8000/telemetry).
