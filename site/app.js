@@ -340,10 +340,14 @@ async function clearCachedDocuments() {
 
 function readerEntryUrl(url, origin) {
   const query = new URLSearchParams({ url: url.trim() });
-  // Carried across the hop to /read so the reader page still knows how this
+  // Carried across the hop to the reader page so it still knows how this
   // source was chosen.
   if (origin) query.set('from', origin);
-  return `/read?${query}`;
+  // Resolved against the page this is running on rather than the domain root.
+  // Paper is served from / when the API serves the site and from /paper/ on
+  // GitHub Pages, where a root-absolute path sent every visitor to a 404. The
+  // deploy rewrites site-absolute links in HTML and CSS, but never in here.
+  return new URL(`read?${query}`, document.baseURI).toString();
 }
 
 function hostname(url) {

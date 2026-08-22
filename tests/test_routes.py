@@ -29,6 +29,21 @@ def test_unbuilt_frontend_uses_its_own_api_origin_locally():
     assert "reportReaderOpened(saved.document, saved.readId, true, origin)" in script
 
 
+def test_reader_links_are_relative_to_the_page_that_builds_them():
+    """Paper is served from / locally and from /paper/ on GitHub Pages.
+
+    A site-absolute reader link works in one and 404s in the other. The deploy
+    rewrites site-absolute URLs in HTML and CSS, but it never rewrites the
+    script, so the script has to resolve them itself.
+    """
+
+    script = (Path(__file__).resolve().parents[1] / "site" / "app.js").read_text(encoding="utf-8")
+
+    assert "new URL(`read?${query}`, document.baseURI)" in script
+    assert "`/read?" not in script
+    assert "'/read?" not in script
+
+
 def test_home_keeps_the_prefilled_reader_form():
     response = client.get("/")
 
