@@ -50,12 +50,12 @@
         <div class="hero-copy">
           <p class="eyebrow"><span class="eyebrow-dot"></span> The best way to read</p>
           <h1 id="hero-title">Read anything from the<br /><em>public internet.</em></h1>
-          <p class="hero-lede">Paper turns books, essays, papers, and long documents into a calm reading experience. Start with a public PDF.</p>
-          <form id="url-form" class="reader-launcher" aria-label="Start with a public PDF">
-            <label class="sr-only" for="pdf-url">Public PDF URL</label>
+          <p class="hero-lede">Paper turns books, essays, papers, and long documents into a calm reading experience. Start with a public document.</p>
+          <form id="url-form" class="reader-launcher" aria-label="Start with a public document">
+            <label class="sr-only" for="source-url">Public document URL</label>
             <div class="url-box">
-              <input id="pdf-url" type="url" required autocomplete="off" spellcheck="false"
-                placeholder="Paste a public PDF link to start"
+              <input id="source-url" type="url" required autocomplete="off" spellcheck="false"
+                placeholder="Paste a public document link to start"
                 value="https://tolstoyarchive.org/Fiction/books/The%20Two%20Old%20Men.pdf" />
               <button id="read-button" type="submit">Read this document <span aria-hidden="true">&rarr;</span></button>
             </div>
@@ -101,7 +101,7 @@
           <p>Paper stays out of the way so the document can do its job.</p>
         </div>
         <div class="workflow-list">
-          <div class="workflow-item"><span class="workflow-number">01</span><div><h3>Bring something worth reading</h3><p>Paper starts with public PDFs. The Tolstoy sample is already loaded so you can try the first source in one click.</p></div></div>
+          <div class="workflow-item"><span class="workflow-number">01</span><div><h3>Bring something worth reading</h3><p>Paper reads public PDFs and readable HTML pages. The Tolstoy sample is already loaded so you can try the first source in one click.</p></div></div>
           <div class="workflow-item"><span class="workflow-number">02</span><div><h3>Let Paper set the page</h3><p>Repeated headers, footers, and page numbers are cleared away while headings and paragraphs find their shape.</p></div></div>
           <div class="workflow-item"><span class="workflow-number">03</span><div><h3>Read at your pace</h3><p>Choose your type size, line width, spacing, and theme. Your progress stays in your browser.</p></div></div>
         </div>
@@ -134,7 +134,7 @@
         <div class="audience-grid">
           <h2 id="audience-title">For books, papers, reports, and the long things worth your time.</h2>
           <div class="audience-copy">
-            <p>PDFs are the first door. Paper is being shaped toward a broader promise: the calmest way to read anything from the public internet.</p>
+            <p>PDFs and readable HTML pages are the first doors. Paper is being shaped toward a broader promise: the calmest way to read anything from the public internet.</p>
             <div class="format-line"><span>Public-domain books</span><span>Research papers</span><span>Long reports</span><span>Essays</span></div>
             <a class="text-link" href="/formats">See supported formats and future directions <span aria-hidden="true">&rarr;</span></a>
           </div>
@@ -156,7 +156,7 @@
       <section id="final-cta" class="final-cta" aria-labelledby="cta-title">
         <div class="section-kicker">Bring something to read</div>
         <h2 id="cta-title">Make room for the good part.</h2>
-        <p>Start with a public PDF. More open formats belong here next.</p>
+        <p>Start with a public document. More open formats belong here next.</p>
         <a class="button button-light" href="/read">Open Paper <span aria-hidden="true">&rarr;</span></a>
       </section>
     </main>
@@ -183,6 +183,7 @@
       <label class="pref-row">Text <input id="font-size" type="range" min="17" max="28" step="1" /></label>
       <label class="pref-row">Width <input id="line-width" type="range" min="560" max="840" step="20" /></label>
       <label class="pref-row">Spacing <input id="line-height" type="range" min="1.45" max="2" step="0.05" /></label>
+      <div class="pref-row"><span>Saved copy</span><div class="pref-actions"><button id="reload-source" type="button">Reload</button><button id="clear-cache" type="button">Clear all</button></div></div>
     </aside>
 
     <article id="book" class="book"></article>

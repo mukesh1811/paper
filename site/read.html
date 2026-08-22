@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#132635" />
   <meta name="robots" content="noindex,follow" />
-  <meta name="description" content="Open a public PDF in Paper's calm, reflowed reading view." />
+  <meta name="description" content="Open a public document in Paper's calm, reflowed reading view." />
   <link rel="canonical" href="/read" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <title>Open a document — Paper</title>
@@ -32,20 +32,20 @@
     </header>
 
     <main class="read-main">
-      <section class="read-hero" aria-labelledby="read-title">
+      <section id="read-hero" class="read-hero" aria-labelledby="read-title">
         <div class="read-copy">
           <p class="eyebrow"><span class="eyebrow-dot"></span> Open a document</p>
           <h1 id="read-title">Give the words a better place to be <em>read.</em></h1>
-          <p class="read-lede">Paste a public PDF link. Paper will clear away the fixed page and make room for a calm, comfortable reading view.</p>
-          <form id="url-form" class="reader-launcher" aria-label="Open a public PDF">
-            <label class="sr-only" for="pdf-url">Public PDF URL</label>
+          <p class="read-lede">Paste a public document link. Paper will make room for a calm, comfortable reading view.</p>
+          <form id="url-form" class="reader-launcher" aria-label="Open a public document">
+            <label class="sr-only" for="source-url">Public document URL</label>
             <div class="url-box">
-              <input id="pdf-url" type="url" required autocomplete="off" spellcheck="false" placeholder="Paste a public PDF link to start" value="https://tolstoyarchive.org/Fiction/books/The%20Two%20Old%20Men.pdf" />
+              <input id="source-url" type="url" required autocomplete="off" spellcheck="false" placeholder="Paste a public document link to start" value="https://tolstoyarchive.org/Fiction/books/The%20Two%20Old%20Men.pdf" />
               <button id="read-button" type="submit">Read this document <span aria-hidden="true">&rarr;</span></button>
             </div>
           </form>
           <p id="status" class="status" aria-live="polite"></p>
-          <p class="read-note">Currently supported: public HTTP or HTTPS links to selectable-text PDFs. No account or upload step.</p>
+          <p class="read-note">Currently supported: public HTTP or HTTPS links to selectable-text PDFs and readable HTML pages. No account or upload step.</p>
         </div>
 
         <div class="read-sheet" aria-hidden="true">
@@ -57,18 +57,57 @@
         </div>
       </section>
 
-      <section class="read-support" aria-labelledby="support-title">
+      <section id="read-support" class="read-support" aria-labelledby="support-title">
         <div>
           <div class="section-kicker">Start with the first source</div>
-          <h2 id="support-title">A public PDF is all Paper needs.</h2>
+          <h2 id="support-title">A public URL is all Paper needs.</h2>
         </div>
         <div>
-          <p>Try the Tolstoy sample already in the field, or replace it with any public PDF URL. Paper handles the reading surface; the original source remains yours.</p>
+          <p>Try the Tolstoy sample already in the field, or replace it with a public PDF or readable HTML URL. Paper handles the reading surface; the original source remains yours.</p>
           <div class="read-facts" aria-label="Current support">
             <div class="read-fact"><strong>Input</strong><span>Public URL</span></div>
-            <div class="read-fact"><strong>Format</strong><span>Selectable-text PDF</span></div>
+            <div class="read-fact"><strong>Format</strong><span>PDF and readable HTML</span></div>
             <div class="read-fact"><strong>Output</strong><span>Reflowed reading view</span></div>
             <div class="read-fact"><strong>Progress</strong><span>Saved in your browser</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="preparation" class="preparation hidden" aria-labelledby="preparation-title">
+        <div class="preparation-topline">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> Paper is preparing your source</p>
+          <button id="change-source" class="prepare-change" type="button">Use another link <span aria-hidden="true">&larr;</span></button>
+        </div>
+
+        <div class="preparation-grid">
+          <aside class="source-passport" aria-label="Source details">
+            <div class="passport-topline"><span id="passport-type">PUBLIC DOCUMENT</span><span>01</span></div>
+            <div class="passport-rule"></div>
+            <p id="passport-host" class="passport-host">Checking the source</p>
+            <h2 id="passport-title">A public document</h2>
+            <p id="passport-author" class="passport-author hidden"></p>
+            <dl id="passport-facts" class="passport-facts"></dl>
+            <div class="passport-skeleton" aria-hidden="true">
+              <div class="skeleton-facts"><span></span><span></span><span></span></div>
+              <div class="skeleton-lines"><span></span><span></span><span></span></div>
+            </div>
+            <blockquote id="passport-opening" class="passport-opening hidden"></blockquote>
+            <p class="passport-provenance">Facts shown here come from the original source.</p>
+          </aside>
+
+          <div class="preparation-copy">
+            <p class="section-kicker">The reading room</p>
+            <h1 id="preparation-title">Preparing your <em>reading copy.</em></h1>
+            <p id="preparation-state" class="preparation-state" aria-live="polite">Finding the source</p>
+            <ol class="preparation-steps" aria-label="Document preparation progress">
+              <li data-stage="fetching"><span class="step-mark" aria-hidden="true"></span><span>Finding the source</span></li>
+              <li data-stage="downloading"><span class="step-mark" aria-hidden="true"></span><span>Downloading the source</span></li>
+              <li data-stage="checking"><span class="step-mark" aria-hidden="true"></span><span>Checking it is readable</span></li>
+              <li data-stage="extracting"><span class="step-mark" aria-hidden="true"></span><span>Extracting the text</span></li>
+              <li data-stage="structuring"><span class="step-mark" aria-hidden="true"></span><span>Finding the reading flow</span></li>
+              <li data-stage="validating"><span class="step-mark" aria-hidden="true"></span><span>Checking the final copy</span></li>
+            </ol>
+            <p class="preparation-note">Paper only opens a source once it has a complete, readable path through it.</p>
           </div>
         </div>
       </section>
@@ -92,6 +131,7 @@
       <label class="pref-row">Text <input id="font-size" type="range" min="17" max="28" step="1" /></label>
       <label class="pref-row">Width <input id="line-width" type="range" min="560" max="840" step="20" /></label>
       <label class="pref-row">Spacing <input id="line-height" type="range" min="1.45" max="2" step="0.05" /></label>
+      <div class="pref-row"><span>Saved copy</span><div class="pref-actions"><button id="reload-source" type="button">Reload</button><button id="clear-cache" type="button">Clear all</button></div></div>
     </aside>
     <article id="book" class="book"></article>
     <footer class="reader-end">End of document</footer>
