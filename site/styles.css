@@ -282,7 +282,10 @@ button { color: inherit; }
 .theme-buttons button { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); cursor: pointer; }
 .theme-buttons button[data-theme="paper"] { background: #f7f4ed; }.theme-buttons button[data-theme="sepia"] { background: #efe4ca; }.theme-buttons button[data-theme="night"] { background: #171717; }
 .book { width: min(var(--reader-width), calc(100vw - 44px)); margin: 0 auto; padding: 45px 0 14vh; font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; font-size: var(--reader-size); line-height: var(--reader-line-height); text-rendering: optimizeLegibility; }
-.book .book-title { margin: 7vh 0 10px; font-size: 2.25em; line-height: 1.05; font-weight: 500; letter-spacing: -.025em; }
+.book .book-source { overflow-wrap: anywhere; margin: 7vh 0 1.4em; color: var(--reader-muted); font: 12px/1.45 ui-sans-serif, sans-serif; }
+.book .book-source a { color: inherit; text-decoration-color: var(--reader-line); text-underline-offset: 3px; }
+.book .book-source a:hover { color: var(--reader-ink); text-decoration-color: currentColor; }
+.book .book-title { margin: 0 0 10px; font-size: 2.25em; line-height: 1.05; font-weight: 500; letter-spacing: -.025em; }
 .book .book-author { margin: 0 0 12vh; color: var(--reader-muted); font-size: .78em; }
 .book h2 { margin: 3.4em 0 1.25em; font-size: 1.35em; line-height: 1.2; font-weight: 500; letter-spacing: -.01em; }
 .book p { margin: 0 0 1.2em; }

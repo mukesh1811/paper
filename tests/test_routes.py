@@ -44,6 +44,18 @@ def test_reader_links_are_relative_to_the_page_that_builds_them():
     assert "'/read?" not in script
 
 
+def test_rendered_reader_starts_with_the_actual_source_url():
+    script = (Path(__file__).resolve().parents[1] / "site" / "app.js").read_text(encoding="utf-8")
+
+    source_line = "fragments.push(`<div class=\"book-source\">source: <a href=\"${escapeAttribute(sourceUrl)}\">${safeSourceUrl}</a></div>`);"
+    title_line = "fragments.push(`<h1 class=\"book-title\">${escapeText(title)}</h1>`);"
+
+    assert "const sourceUrl = data.source?.url || activeUrl;" in script
+    assert "function escapeAttribute(value)" in script
+    assert source_line in script
+    assert script.index(source_line) < script.index(title_line)
+
+
 def test_home_keeps_the_prefilled_reader_form():
     response = client.get("/")
 
