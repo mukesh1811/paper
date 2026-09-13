@@ -81,6 +81,10 @@ function escapeText(value) {
   return span.innerHTML;
 }
 
+function escapeAttribute(value) {
+  return escapeText(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
 function apiBaseUrl() {
   const configured = document.querySelector('meta[name="paper-api-base"]')?.content?.trim();
   // Source HTML keeps this deployment token. When the backend serves that
@@ -479,7 +483,12 @@ async function streamReadPreparation(url, origin = 'unknown') {
 function renderBook(data) {
   const metadata = data.metadata || {};
   const title = metadata.title || 'Untitled document';
+  const sourceUrl = data.source?.url || activeUrl;
   const fragments = [];
+  if (sourceUrl) {
+    const safeSourceUrl = escapeText(sourceUrl);
+    fragments.push(`<div class="book-source">source: <a href="${escapeAttribute(sourceUrl)}">${safeSourceUrl}</a></div>`);
+  }
   fragments.push(`<h1 class="book-title">${escapeText(title)}</h1>`);
   if (metadata.author) fragments.push(`<div class="book-author">${escapeText(metadata.author)}</div>`);
   for (const block of data.blocks) {
