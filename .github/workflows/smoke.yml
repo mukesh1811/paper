@@ -11,10 +11,6 @@ on:
   workflow_run:
     workflows: ["Deploy Paper frontend"]
     types: [completed]
-  # Daily, because the ways this breaks are rarely a code change: an expired
-  # model key, an empty credit balance, a source host that went away.
-  schedule:
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       skip_read:
