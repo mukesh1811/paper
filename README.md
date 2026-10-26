@@ -50,3 +50,13 @@ The sink's own table is log-shaped: fields nested under `jsonPayload`, beside a 
 The view keeps the same columns from the first day. A field that has not been sent yet has no column in the exported table, so it is selected as a typed `NULL` until it appears — re-run the script after more traffic to bind it to the real column.
 
 It finishes by printing the queries for what people read, how the pipeline breaks, where the time goes, new versus returning browsers, how far people actually read, and what a read costs.
+
+## Add Paper to your home screen
+
+Paper includes a web app manifest and icons for a standalone launch in supporting
+browsers. Use the browser's **Install app** / **Add to Home Screen** option (on
+iOS, Safari's Share menu). Availability and presentation depend on the browser.
+
+This is a lightweight install setup only: no service worker, offline shell, or
+new caching behavior. Existing reading and saved-copy behavior is unchanged.
+The manifest uses relative paths so it works both locally and under `/paper/`.

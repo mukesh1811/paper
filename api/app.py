@@ -95,6 +95,13 @@ def index() -> Response:
     return _site_file("index.html")
 
 
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest() -> FileResponse:
+    response = _site_file("manifest.webmanifest")
+    response.headers["content-type"] = "application/manifest+json"
+    return response
+
+
 @app.get("/healthz")
 def healthz() -> dict:
     return {"status": "ok"}
